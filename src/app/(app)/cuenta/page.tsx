@@ -9,9 +9,15 @@ import {
   Eye,
   EyeOff,
   Lock,
+  LogOut,
 } from "lucide-react";
 import { usePerfil } from "@/components/ContextoPerfil";
 import { crearClienteNavegador } from "@/lib/supabase/cliente";
+
+async function cerrarSesion() {
+  await crearClienteNavegador().auth.signOut();
+  window.location.assign("/ingreso");
+}
 
 export default function PaginaCuenta() {
   const perfil = usePerfil();
@@ -161,6 +167,20 @@ export default function PaginaCuenta() {
           </button>
         </div>
       </form>
+    
+      <section className="tarjeta pila">
+        <h2>
+          <LogOut size={18} />
+          <span>Cerrar sesión</span>
+        </h2>
+        <p className="tenue">Cierre su sesión al terminar, sobre todo si usa un equipo o celular compartido.</p>
+        <div>
+          <button type="button" className="boton peligro" onClick={() => void cerrarSesion()}>
+            <LogOut size={18} />
+            <span>Cerrar sesión</span>
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

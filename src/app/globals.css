@@ -7,6 +7,7 @@
                      radial-gradient(circle at 85% 80%, rgba(79, 70, 229, 0.07) 0%, transparent 45%),
                      #f8fafc;
   --superficie: rgba(255, 255, 255, 0.92);
+  --superficie-solida: #ffffff;
   --superficie-pura: #ffffff;
   --superficie-elevada: #ffffff;
   --superficie-tenue: #f8fafc;
@@ -61,6 +62,7 @@
                        radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
                        #090d16;
     --superficie: rgba(17, 24, 39, 0.85);
+    --superficie-solida: #111827;
     --superficie-pura: #111827;
     --superficie-elevada: #1f2937;
     --superficie-tenue: #0f172a;
@@ -717,6 +719,25 @@ td.numero, th.numero {
 
 .navegacion-enlace:hover svg {
   transform: translateY(-1px);
+}
+
+.navegacion-enlace.navegacion-salir {
+  flex: 0 0 auto;
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  min-width: auto;
+  padding: 6px 10px;
+  color: var(--peligro);
+  background: var(--superficie-solida);
+  border-left: 1px solid var(--linea);
+  border-radius: 0;
+  white-space: nowrap;
+}
+
+.navegacion-enlace.navegacion-salir:hover {
+  color: var(--peligro);
+  background: var(--superficie-solida);
 }
 
 @media (min-width: 960px) {

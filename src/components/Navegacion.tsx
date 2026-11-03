@@ -135,27 +135,18 @@ export default function Navegacion({ perfil }: { perfil: Perfil }) {
               {perfil.nombre_completo.split(" ")[0]}
             </span>
           </Link>
-
-          {/* Botón Salir */}
-          <button
-            type="button"
-            onClick={salir}
-            className="navegacion-enlace"
-            style={{ minWidth: "auto", color: "var(--peligro)", padding: "8px 10px" }}
-            title="Cerrar sesión"
-          >
-            <LogOut size={18} />
-            <span style={{ display: "none" }} className="salir-texto">Salir</span>
-          </button>
         </div>
+
+        {/* Fijo a la derecha para que se vea aunque el menú se deslice en celular */}
+        <button type="button" onClick={salir} className="navegacion-enlace navegacion-salir">
+          <LogOut size={18} />
+          <span>Cerrar sesión</span>
+        </button>
       </nav>
       <style jsx>{`
         @media (min-width: 960px) {
           .marca-texto {
             display: block !important;
-          }
-          .salir-texto {
-            display: inline !important;
           }
         }
       `}</style>
