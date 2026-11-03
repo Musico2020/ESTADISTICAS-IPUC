@@ -62,7 +62,7 @@ export default function PaginaInformes() {
   const pdf = () =>
     ejecutar(async () => {
       const [{ generarPdf }, d] = await Promise.all([import("@/lib/informes/pdf"), datos()]);
-      generarPdf(d);
+      await generarPdf(d);
     });
 
   const excel = () =>

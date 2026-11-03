@@ -20,4 +20,4 @@ export async function proxy(request: NextRequest) {
   return respuesta;
 }
 
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|api/mantener-activo|revision.html).*)"] };
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|api/mantener-activo|revision.html|logo-ipuc.png|icono-ipuc.png|icon.png).*)"] };

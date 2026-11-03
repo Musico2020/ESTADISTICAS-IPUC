@@ -1,6 +1,7 @@
 "use client";
+import Image from "next/image";
 import { useState, type FormEvent } from "react";
-import { Flame, Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, AlertCircle, Loader2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, AlertCircle, Loader2 } from "lucide-react";
 import { crearClienteNavegador } from "@/lib/supabase/cliente";
 
 export default function Ingreso() {
@@ -32,9 +33,8 @@ export default function Ingreso() {
       
       <div className="ingreso-tarjeta">
         <div className="ingreso-logo-contenedor">
-          <div className="ingreso-logo-icono">
-            <Flame size={34} />
-          </div>
+          <Image src="/logo-ipuc.png" alt="Logo de la Iglesia Pentecostal Unida de Colombia" width={220} height={155} priority unoptimized
+            style={{ background: "#ffffff", borderRadius: 12, padding: 8, height: "auto", maxWidth: "100%" }} />
           <div>
             <h1 style={{ fontSize: "1.45rem", justifyContent: "center", marginBottom: 4 }}>
               Evangelismo IPUC

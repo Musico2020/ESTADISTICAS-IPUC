@@ -4,8 +4,27 @@ import { ETIQUETA_CASO, ETIQUETA_DIFICULTAD, type Dificultad, type TipoCaso } fr
 import type { DatosInforme } from "./datos";
 import { filasPorZona, nombreArchivo } from "./resumen";
 
-export function generarPdf({ estadisticas: e, desde, hasta, zonaNombre, casos }: DatosInforme) {
+async function logoComoDatos(): Promise<string | null> {
+  try {
+    const r = await fetch("/logo-ipuc.png");
+    if (!r.ok) return null;
+    const b = await r.blob();
+    return await new Promise((resolver, rechazar) => {
+      const lector = new FileReader();
+      lector.onload = () => resolver(lector.result as string);
+      lector.onerror = rechazar;
+      lector.readAsDataURL(b);
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function generarPdf({ estadisticas: e, desde, hasta, zonaNombre, casos }: DatosInforme) {
   const doc = new jsPDF();
+  // El informe se genera aunque el logo no cargue.
+  const logo = await logoComoDatos();
+  if (logo) doc.addImage(logo, "PNG", 166, 8, 30, 21);
   let y = 18;
   doc.setFontSize(16);
   doc.text("Informe de evangelismo, IPUC Barrio Dangond", 14, y);

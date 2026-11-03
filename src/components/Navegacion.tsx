@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -11,7 +12,6 @@ import {
   ShieldCheck,
   User,
   LogOut,
-  Flame,
 } from "lucide-react";
 import { crearClienteNavegador } from "@/lib/supabase/cliente";
 import type { Perfil } from "@/lib/tipos";
@@ -61,22 +61,8 @@ export default function Navegacion({ perfil }: { perfil: Perfil }) {
       <nav className="navegacion" aria-label="Principal">
         {/* Marca en pantallas grandes */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginRight: 8 }}>
-          <div
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
-              background: "var(--marca-degradado)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#ffffff",
-              boxShadow: "var(--marca-sombra)",
-              flexShrink: 0,
-            }}
-          >
-            <Flame size={20} />
-          </div>
+          <Image src="/icono-ipuc.png" alt="Logo de la Iglesia Pentecostal Unida de Colombia" width={38} height={38} unoptimized
+            style={{ borderRadius: 10, background: "#ffffff", flexShrink: 0 }} />
           <div style={{ display: "none" }} className="marca-texto">
             <span style={{ fontWeight: 800, fontSize: "0.95rem", letterSpacing: "-0.01em", display: "block", lineHeight: 1.1 }}>
               IPUC Dangond
