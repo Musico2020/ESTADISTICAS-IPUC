@@ -28,7 +28,10 @@ async function descargarVias() {
 
 const { transformacion: t, zonas } = JSON.parse(fs.readFileSync("data/zonas-pixeles.json", "utf8"));
 // La imagen está levemente girada: x = x0 + sx*dLon + rx*dLat, y = y0 - sy*dLat + ry*dLon.
-const aLonLat = ([x, y]) => {
+// Un vértice es un píxel de la imagen [x, y] o una coordenada exacta { lat, lon } tomada de una calle.
+const aLonLat = (v) => {
+  if (!Array.isArray(v)) return [v.lon, v.lat];
+  const [x, y] = v;
   const X = x - t.x0, Y = y - t.y0, det = -t.sx * t.sy - t.rx * t.ry;
   return [t.lon0 + (-t.sy * X - t.rx * Y) / det, t.lat0 + (-t.ry * X + t.sx * Y) / det];
 };
@@ -90,7 +93,10 @@ function trazarManzanas(vias) {
 }
 
 const elementos = await descargarVias();
-const poligonos = trazarManzanas(elementos.filter((e) => e.type === "way" && !VIAS_DESCARTADAS.has(e.tags.highway)));
+const viasUtiles = elementos.filter((e) => e.type === "way" && !VIAS_DESCARTADAS.has(e.tags.highway));
+const nodosGlorieta = new Set(viasUtiles.filter((v) => v.tags.junction).flatMap((v) => v.geometry.map((g) => `${g.lon},${g.lat}`)));
+// El centro de una glorieta no es una manzana.
+const poligonos = trazarManzanas(viasUtiles).filter((p) => !p.geometry.coordinates[0].every(([x, y]) => nodosGlorieta.has(`${x},${y}`)));
 
 // Una manzana pertenece a la zona que contiene la mayor parte de su área, si supera FRACCION_MIN.
 function zonaDeManzana(p, area) {

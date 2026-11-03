@@ -13,4 +13,10 @@ if (error) throw error;
 const idZona = new Map(zonas.map((z) => [z.numero, z.id]));
 const filas = leer("manzanas").map((m) => ({ codigo: m.codigo, geometria: m.geometria, zona_id: idZona.get(m.zona_numero) }));
 comprobar(await db.from("manzanas").upsert(filas, { onConflict: "codigo" }));
+// Borra las manzanas que ya no existen. Si alguna tiene reportes, la base de datos lo rechaza.
+const { data: actuales, error: e2 } = await db.from("manzanas").select("codigo");
+if (e2) throw e2;
+const vigentes = new Set(filas.map((f) => f.codigo));
+const sobrantes = actuales.map((m) => m.codigo).filter((c) => !vigentes.has(c));
+if (sobrantes.length) comprobar(await db.from("manzanas").delete().in("codigo", sobrantes));
 console.log(`Zonas: ${zonas.length}, manzanas: ${filas.length}`);
