@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Evangelismo IPUC Barrio Dangond
 
-## Getting Started
+Aplicación web para registrar los reportes de evangelismo, marcar en el mapa las manzanas alcanzadas (verde) o sin predicar (rojo), y generar estadísticas e informes en PDF y Excel.
 
-First, run the development server:
+Usa Next.js y se publica en Vercel. Los datos y usuarios están en Supabase.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Ejecutarla localmente
+
+1. Copie `.env.example` a `.env.local` y complete las claves del proyecto Supabase.
+2. Ejecute `npm install`.
+3. Ejecute `npm run dev` y abra http://localhost:3000.
+
+| Variable | Uso |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave pública. La protección de los datos está en las reglas de la base de datos |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave secreta de servidor. Nunca la publique |
+| `CRON_SECRET` | Protege la tarea diaria que evita la pausa de Supabase |
+
+## Preparar la base de datos
+
+```
+npx supabase db push
+node scripts/cargar-semilla.mjs
+node scripts/crear-admin.mjs correo@ejemplo.com Nombre Completo
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Pruebas
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `npm test`: lógica del formulario, avance e importación.
+- `npm run test:seguridad`: reglas de acceso contra el proyecto Supabase configurado. Crea usuarios y datos temporales y los borra al terminar. Ejecútelas antes de cargar datos reales.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Cambiar zonas y manzanas
 
-## Learn More
+Las zonas están en `data/zonas-pixeles.json` y las calles en `data/vias-osm.json` (datos de OpenStreetMap). Para regenerar:
 
-To learn more about Next.js, take a look at the following resources:
+```
+node scripts/generar-manzanas.mjs
+node scripts/cargar-semilla.mjs
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Hágalo antes de cargar reportes reales, porque los códigos de manzana pueden cambiar. Abra `/revision.html` para ver el resultado. Después, use **Administración > Manzanas** para desactivar una manzana errónea.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Para cambiar el color de una zona, edite `color_borde` en `data/zonas-pixeles.json` y regenere.
 
-## Deploy on Vercel
+## Copias de seguridad
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+El plan gratuito de Supabase no incluye copias descargables. Cada mes, descargue **Informes > Exportar todos los datos** y guárdelo en un lugar privado.
