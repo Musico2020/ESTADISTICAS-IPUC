@@ -86,7 +86,7 @@ function Grafica({ titulo, datos, x, y, etiqueta }: { titulo: string; datos: obj
             <YAxis allowDecimals={false} tick={{ fill: "var(--tenue)", fontSize: 12 }} tickLine={false} axisLine={false} />
             <Tooltip cursor={{ fill: "var(--linea)", fillOpacity: 0.4 }}
               contentStyle={{ background: "var(--superficie)", border: "1px solid var(--linea)", borderRadius: 8, color: "var(--texto)" }} />
-            <Bar dataKey={y} name={etiqueta} fill="var(--grafica)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+            <Bar dataKey={y} name={etiqueta} fill="var(--grafica)" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       </div>
