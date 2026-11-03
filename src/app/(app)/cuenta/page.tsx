@@ -89,7 +89,7 @@ export default function PaginaCuenta() {
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
             <span className={`badge ${perfil.rol === "administrador" ? "badge-marca" : "badge-tenue"}`}>
               <ShieldCheck size={13} />
-              <span>{perfil.rol === "administrador" ? "Administrador General" : "Coordinador de Zona"}</span>
+              <span>{perfil.rol === "administrador" ? "Administrador General" : perfil.rol === "usuario" ? "Usuario de todas las zonas" : "Coordinador de Zona"}</span>
             </span>
             <span className="badge badge-exito">
               <span className="punto-estado punto-exito" />
@@ -99,7 +99,8 @@ export default function PaginaCuenta() {
         </div>
       </div>
 
-      {/* Formulario de Cambio de Contraseña */}
+      {/* La cuenta compartida no cambia su contraseña: dejaría por fuera a todo el equipo */}
+      {perfil.rol !== "usuario" && (
       <form className="tarjeta pila" onSubmit={cambiar}>
         <h2>
           <KeyRound size={20} style={{ color: "var(--marca)" }} />
@@ -167,6 +168,7 @@ export default function PaginaCuenta() {
           </button>
         </div>
       </form>
+      )}
     
       <section className="tarjeta pila">
         <h2>

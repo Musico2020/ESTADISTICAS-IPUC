@@ -8,7 +8,6 @@ import {
   Users,
   MapPin,
   UploadCloud,
-  Mail,
   Lock,
   User,
   Layers,
@@ -22,7 +21,7 @@ import { usePerfil } from "@/components/ContextoPerfil";
 import { crearClienteNavegador } from "@/lib/supabase/cliente";
 import type { Manzana, Perfil, Rol, Zona } from "@/lib/tipos";
 
-const NUEVO = { email: "", password: "", nombre_completo: "", rol: "coordinador" as Rol, zona_id: "" };
+const NUEVO = { usuario: "", password: "", nombre_completo: "", rol: "coordinador" as Rol, zona_id: "" };
 
 export default function PaginaAdministracion() {
   const perfil = usePerfil();
@@ -70,7 +69,7 @@ export default function PaginaAdministracion() {
       setMensaje((await r.json()).error ?? "No se pudo crear el usuario.");
       return;
     }
-    setMensaje(`Usuario ${nuevo.email} creado exitosamente. Entréguele su contraseña en privado.`);
+    setMensaje(`Usuario ${nuevo.usuario} creado exitosamente. Entréguele su contraseña en privado.`);
     setNuevo(NUEVO);
     void cargar();
   }
@@ -156,14 +155,14 @@ export default function PaginaAdministracion() {
             </label>
 
             <label className="campo">
-              <span><Mail size={15} /> Correo electrónico</span>
+              <span><User size={15} /> Usuario para ingresar</span>
               <input
-                type="email"
                 required
-                placeholder="coordinador@ipucdangond.org"
+                autoCapitalize="none"
+                placeholder="Ej: daniel"
                 autoComplete="off"
-                value={nuevo.email}
-                onChange={(e) => setNuevo({ ...nuevo, email: e.target.value })}
+                value={nuevo.usuario}
+                onChange={(e) => setNuevo({ ...nuevo, usuario: e.target.value })}
               />
             </label>
 
@@ -187,6 +186,7 @@ export default function PaginaAdministracion() {
                 onChange={(e) => setNuevo({ ...nuevo, rol: e.target.value as Rol })}
               >
                 <option value="coordinador">Coordinador de Zona</option>
+                <option value="usuario">Usuario (todas las zonas)</option>
                 <option value="administrador">Administrador General</option>
               </select>
             </label>
@@ -279,7 +279,7 @@ export default function PaginaAdministracion() {
                     </td>
                     <td>
                       <span className={`badge ${p.rol === "administrador" ? "badge-marca" : "badge-tenue"}`}>
-                        {p.rol === "administrador" ? "Administrador" : "Coordinador"}
+                        {p.rol === "administrador" ? "Administrador" : p.rol === "usuario" ? "Usuario" : "Coordinador"}
                       </span>
                     </td>
                     <td>

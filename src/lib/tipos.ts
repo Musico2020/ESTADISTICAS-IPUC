@@ -1,4 +1,4 @@
-export type Rol = "coordinador" | "administrador";
+export type Rol = "coordinador" | "administrador" | "usuario";
 export type TipoCaso = "enfermo" | "sordo" | "consejeria";
 export type Dificultad = "poco_tiempo" | "falta_acompanamiento" | "rechazo" | "clima" | "ninguna" | "otra";
 export type Poligono = { type: "Polygon"; coordinates: number[][][] };

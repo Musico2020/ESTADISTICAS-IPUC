@@ -1,11 +1,12 @@
 "use client";
 import Image from "next/image";
 import { useState, type FormEvent } from "react";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, AlertCircle, Loader2 } from "lucide-react";
+import { User, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, AlertCircle, Loader2 } from "lucide-react";
 import { crearClienteNavegador } from "@/lib/supabase/cliente";
+import { aCorreo } from "@/lib/usuarios";
 
 export default function Ingreso() {
-  const [email, setEmail] = useState("");
+  const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
   const [mostrarClave, setMostrarClave] = useState(false);
   const [error, setError] = useState("");
@@ -16,11 +17,11 @@ export default function Ingreso() {
     setEnviando(true);
     setError("");
     const { error: fallo } = await crearClienteNavegador().auth.signInWithPassword({
-      email: email.trim(),
+      email: aCorreo(usuario),
       password,
     });
     if (fallo) {
-      setError("Correo o contraseña incorrectos");
+      setError("Usuario o contraseña incorrectos");
       setEnviando(false);
       return;
     }
@@ -48,15 +49,18 @@ export default function Ingreso() {
         <form className="pila" onSubmit={entrar}>
           <div className="campo">
             <span>
-              <Mail size={16} /> Correo electrónico
+              <User size={16} /> Usuario
             </span>
             <input
-              type="email"
+              type="text"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               autoComplete="username"
-              placeholder="nombre@ipucdangond.org"
+              placeholder="Escriba su usuario"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={usuario}
+              onChange={(e) => setUsuario(e.target.value)}
             />
           </div>
 

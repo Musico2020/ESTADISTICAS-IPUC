@@ -28,12 +28,12 @@ type Props = { inicial?: DatosReporte; reporteId?: string; alGuardar: (id: strin
 
 export default function FormularioReporte({ inicial, reporteId, alGuardar }: Props) {
   const perfil = usePerfil();
-  const esAdmin = perfil.rol === "administrador";
+  const eligeZona = perfil.rol !== "coordinador";
   const [d, setD] = useState<DatosReporte>(() => inicial ?? {
     ...reporteVacio(),
     zona_id: perfil.zona_id ?? "",
-    responsable_nombre: perfil.nombre_completo,
-    coordinador_nombre: perfil.nombre_completo,
+    responsable_nombre: perfil.rol === "usuario" ? "" : perfil.nombre_completo,
+    coordinador_nombre: perfil.rol === "usuario" ? "" : perfil.nombre_completo,
   });
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [manzanas, setManzanas] = useState<Manzana[]>([]);
@@ -169,7 +169,7 @@ export default function FormularioReporte({ inicial, reporteId, alGuardar }: Pro
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           {texto("responsable_nombre", "Nombre del responsable", "text", <UserCheck size={16} />, "Ej: Juan Pérez")}
 
-          {esAdmin && !reporteId ? (
+          {eligeZona && !reporteId ? (
             <Campo etiqueta="Zona / Bloque asignado" error={errores.zona_id} icono={<Layers size={16} />}>
               <select
                 name="zona_id"

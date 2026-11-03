@@ -115,3 +115,47 @@ describe("funciones agregadas", () => {
     expect((await c.rpc("estado_manzanas", { p_desde: "2099-01-01", p_hasta: "2099-12-31" })).error).not.toBeNull();
   });
 });
+
+describe("rol usuario (todas las zonas)", () => {
+  let u: SupabaseClient, reporteU: string;
+  beforeAll(async () => {
+    u = (await usuario("usuario", null)).c;
+    const r = await u.rpc("guardar_reporte", { p_id: null, p_reporte: base(z2), p_manzanas: [m2], p_casos: [] });
+    if (r.error) throw r.error;
+    reporteU = r.data;
+  });
+  it("ve reportes y casos de cualquier zona", async () => {
+    expect((await u.from("reportes").select("id").eq("id", reporteZ1)).data).toHaveLength(1);
+    expect((await u.from("casos_especiales").select("id").eq("reporte_id", reporteZ1)).data).toHaveLength(1);
+  });
+  it("reporta en cualquier zona y edita lo suyo", async () => {
+    const r = await u.rpc("guardar_reporte", { p_id: null, p_reporte: base(z1), p_manzanas: [m1], p_casos: [] });
+    expect(r.error).toBeNull();
+    const e = await u.rpc("guardar_reporte", { p_id: reporteU, p_reporte: base(z2), p_manzanas: [m2], p_casos: [] });
+    expect(e.error).toBeNull();
+  });
+  it("no edita reportes de otra persona", async () => {
+    const r = await u.rpc("guardar_reporte", { p_id: reporteZ1, p_reporte: base(z1), p_manzanas: [m1], p_casos: [] });
+    expect(r.error).not.toBeNull();
+  });
+  it("no marca una manzana que no sea de la zona del reporte", async () => {
+    const r = await u.rpc("guardar_reporte", { p_id: null, p_reporte: base(z1), p_manzanas: [m2], p_casos: [] });
+    expect(r.error).not.toBeNull();
+  });
+  it("no elimina reportes", async () => {
+    await u.from("reportes").delete().eq("id", reporteZ1);
+    expect((await srv.from("reportes").select("id").eq("id", reporteZ1)).data).toHaveLength(1);
+  });
+  it("no se vuelve administrador ni ve otros perfiles", async () => {
+    const yo = (await u.auth.getUser()).data.user!.id;
+    await u.from("perfiles").update({ rol: "administrador" }).eq("id", yo);
+    expect((await srv.from("perfiles").select("rol").eq("id", yo).single()).data!.rol).toBe("usuario");
+    const p = (await u.from("perfiles").select("id")).data!;
+    expect(p.map((x: { id: string }) => x.id)).toEqual([yo]);
+  });
+  it("no importa ni cambia manzanas", async () => {
+    expect((await u.rpc("importar_reportes", { p_filas: [] })).error).not.toBeNull();
+    await u.from("manzanas").update({ activa: false }).eq("id", m1);
+    expect((await srv.from("manzanas").select("activa").eq("id", m1).single()).data!.activa).toBe(true);
+  });
+});

@@ -46,3 +46,13 @@ Para cambiar el color de una zona, edite `color_borde` en `data/zonas-pixeles.js
 ## Copias de seguridad
 
 El plan gratuito de Supabase no incluye copias descargables. Cada mes, descargue **Informes > Exportar todos los datos** y guárdelo en un lugar privado.
+
+## Ingreso con usuario
+
+Se entra con un nombre de usuario, no con correo. Internamente Supabase guarda un correo en el dominio reservado `usuarios-ipuc.example.com` (ver `src/lib/usuarios.ts`).
+
+| Rol | Puede |
+|---|---|
+| `administrador` | Todo, incluidos Informes y Administración |
+| `usuario` | Reportar y consultar en las 4 zonas, sin Informes ni Administración |
+| `coordinador` | Reportar y consultar solo en su zona |
