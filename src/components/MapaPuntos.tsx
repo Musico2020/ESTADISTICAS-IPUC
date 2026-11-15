@@ -49,7 +49,7 @@ export default function MapaPuntos({ zonas, sectores = [], puntos = [], marcador
     if (marcador) {
       destino.addLayer(L.circleMarker([marcador.lat, marcador.lon], { radius: 11, color: "#1d4ed8", weight: 3, fillColor: "#22c55e", fillOpacity: 0.9 }));
     }
-    if (!encuadrado.current && zonas.length) { mapa.current.fitBounds(bordes.getBounds()); encuadrado.current = true; }
+    if (!encuadrado.current && zonas.length) { mapa.current.fitBounds(bordes.getBounds(), { animate: false }); encuadrado.current = true; }
   }, [zonas, sectores, puntos, marcador]);
 
   // Al tomar la ubicación con el GPS, el mapa se acerca a la casa. Sin animación: si la página cambia

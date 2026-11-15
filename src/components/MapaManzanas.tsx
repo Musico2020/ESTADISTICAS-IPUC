@@ -53,7 +53,7 @@ export default function MapaManzanas({ zonas, sectores = [], manzanas, estados, 
     })));
     destino.addLayer(bordes);
     for (const s of sectores) destino.addLayer(L.geoJSON(s.geometria, { interactive: false, style: { color: s.color_borde, weight: 5, fill: false } }));
-    if (!encuadrado.current && zonas.length) { mapa.current.fitBounds(bordes.getBounds()); encuadrado.current = true; }
+    if (!encuadrado.current && zonas.length) { mapa.current.fitBounds(bordes.getBounds(), { animate: false }); encuadrado.current = true; }
   }, [zonas, sectores, manzanas, estados, seleccion, alTocar]);
 
   return <div ref={contenedor} className="mapa" role="application" aria-label="Mapa de manzanas" />;
