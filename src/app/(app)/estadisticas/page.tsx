@@ -21,9 +21,15 @@ import {
   AlertTriangle,
   FileSpreadsheet,
   TrendingUp,
+  Baby,
+  HeartHandshake,
+  Coins,
+  HandHeart,
 } from "lucide-react";
 import SelectorPeriodo, { type Periodo } from "@/components/SelectorPeriodo";
 import { filasPorZona, type Estadisticas } from "@/lib/informes/resumen";
+import { ENCABEZADOS_CULTOS_ZONA, ENCABEZADOS_PERSONAS_ZONA, filasCultosPorZona, filasPersonasPorZona, type ResumenActividad } from "@/lib/informes/actividad";
+import { formatoPesos } from "@/lib/culto/validar";
 import { periodoDeAnio } from "@/lib/mapa/periodo";
 import { crearClienteNavegador } from "@/lib/supabase/cliente";
 import { ETIQUETA_CASO, ETIQUETA_DIFICULTAD, type Dificultad, type TipoCaso, type Zona } from "@/lib/tipos";
@@ -97,6 +103,7 @@ export default function PaginaEstadisticas() {
       )}
 
       {e && <Contenido e={e} />}
+      <ResumenDeActividad periodo={periodo} zona={zona} />
     </div>
   );
 }
@@ -273,6 +280,39 @@ function Tabla({
           </tbody>
         </table>
       </div>
+    </section>
+  );
+}
+
+// Cultos en casas, VIS y amigos del período. La base de datos solo suma lo que el usuario puede ver.
+function ResumenDeActividad({ periodo, zona }: { periodo: Periodo; zona: string }) {
+  const [r, setR] = useState<ResumenActividad | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    void crearClienteNavegador().rpc("resumen_actividad", { p_desde: periodo.desde, p_hasta: periodo.hasta, p_zona: zona || null })
+      .then(({ data, error: fallo }) => { setError(!!fallo); setR(data as ResumenActividad | null); });
+  }, [periodo, zona]);
+  if (error) return <p className="aviso" role="alert"><AlertTriangle size={18} /><span>No se pudo cargar el resumen de cultos, VIS y amigos.</span></p>;
+  if (!r) return null;
+  const vacio = r.cultos.total + r.personas.vis + r.personas.amigos + r.visitas === 0;
+  return (
+    <section className="pila" aria-labelledby="titulo-actividad">
+      <h2 id="titulo-actividad" style={{ marginTop: 12 }}><Home size={22} style={{ color: "var(--marca)" }} /><span>Cultos, VIS y amigos</span></h2>
+      {vacio ? <p className="tenue">No hay cultos, fichas ni visitas en este período.</p> : (
+        <>
+          <div className="rejilla-kpi">
+            <Kpi valor={r.cultos.total} texto="Cultos en casas" subtitulo={`${r.cultos.miercoles} miércoles · ${r.cultos.viernes} viernes`} icono={<Home size={18} />} />
+            <Kpi valor={r.cultos.hermanos} texto="Hermanos en cultos" subtitulo={`${r.cultos.amigos} amigos · ${r.cultos.ninos} niños`} icono={<Users size={18} />} />
+            <Kpi valor={formatoPesos(r.cultos.ofrenda)} texto="Ofrendas" subtitulo={`${r.cultos.con_enfermos} cultos con enfermos`} icono={<Coins size={18} />} />
+            <Kpi valor={r.personas.vis} texto="Niños de VIS" subtitulo={`${r.visitas} ${r.visitas === 1 ? "visita realizada" : "visitas realizadas"}`} icono={<Baby size={18} />} />
+            <Kpi valor={r.personas.amigos} texto="Amigos registrados" subtitulo={`${r.personas.congregados} ya se congregan`} icono={<HeartHandshake size={18} />} />
+            <Kpi valor={r.personas.entregaron} texto="Se entregaron a Cristo" subtitulo={`${r.personas.piden_oracion} ${r.personas.piden_oracion === 1 ? "pide" : "piden"} oración · ${r.personas.enfermos} ${r.personas.enfermos === 1 ? "enfermo" : "enfermos"}`} icono={<HandHeart size={18} />} />
+          </div>
+          <Grafica titulo="Cultos por mes" icono={<TrendingUp size={18} />} datos={r.por_mes} x="mes" y="cultos" etiqueta="Cultos" />
+          <Tabla titulo="Cultos por zona" icono={<Layers size={18} />} encabezados={ENCABEZADOS_CULTOS_ZONA} filas={filasCultosPorZona(r)} />
+          <Tabla titulo="VIS y amigos por zona" icono={<Layers size={18} />} encabezados={ENCABEZADOS_PERSONAS_ZONA} filas={filasPersonasPorZona(r)} />
+        </>
+      )}
     </section>
   );
 }

@@ -302,3 +302,44 @@ describe("VIS, amigos y visitas", () => {
     expect(JSON.stringify(r.data)).not.toMatch(/NINO-SECRETO|CALAMIDAD-SECRETA/);
   });
 });
+
+describe("resumen de actividad", () => {
+  let lider: SupabaseClient;
+  beforeAll(async () => {
+    lider = (await usuario("lider_zona", z1)).c;
+    const c = await lider.from("cultos").insert({ zona_id: z1, fecha: "2099-04-04", direccion: "RESUMEN-SECRETO", lat: 10.46, lon: -73.25, hermanos: 7, amigos: 2, ninos: 1, ofrenda: 30000 });
+    if (c.error) throw c.error;
+    const p = await lider.from("personas").insert({ tipo: "amigo", zona_id: z1, nombre: "PERSONA-RESUMEN", entrego_vida: true });
+    if (p.error) throw p.error;
+  });
+  afterAll(async () => {
+    await srv.from("cultos").delete().eq("direccion", "RESUMEN-SECRETO");
+    await srv.from("personas").delete().eq("nombre", "PERSONA-RESUMEN");
+  });
+  const resumen = (c: SupabaseClient) => c.rpc("resumen_actividad", { p_desde: "2099-01-01", p_hasta: "2099-12-31" });
+  it("el líder suma su zona y no expone nombres ni direcciones", async () => {
+    const r = await resumen(lider);
+    expect(r.error).toBeNull();
+    expect(r.data.cultos).toMatchObject({ total: 1, hermanos: 7, ofrenda: 30000 });
+    expect(JSON.stringify(r.data)).not.toMatch(/RESUMEN-SECRETO|PERSONA-RESUMEN/);
+  });
+  it("otra zona y otro sector suman cero", async () => {
+    const vecino = (await usuario("lider_zona", zVecina)).c;
+    expect((await resumen(vecino)).data.cultos.total).toBe(0);
+    const otro = (await usuario("coordinador_sector", null, s2)).c;
+    const r = await resumen(otro);
+    expect(r.data.cultos.total).toBe(0);
+    expect(r.data.por_zona.map((z: { numero: number }) => z.numero)).toEqual([4, 5, 6]);
+  });
+  it("el coordinador del sector lo suma, y la entrega cuenta", async () => {
+    const c = (await usuario("coordinador_sector", null, s1)).c;
+    // La ficha se registra hoy, así que el rango debe incluir la fecha actual.
+    const r = await c.rpc("resumen_actividad", { p_desde: "2000-01-01", p_hasta: "2099-12-31" });
+    expect(r.data.cultos.total).toBeGreaterThanOrEqual(1);
+    expect(r.data.personas.entregaron).toBeGreaterThanOrEqual(1);
+  });
+  it("un visitante sin sesión no puede llamarlo", async () => {
+    const a = createClient(URL, ANON, { auth: { persistSession: false } });
+    expect((await resumen(a)).error).not.toBeNull();
+  });
+});

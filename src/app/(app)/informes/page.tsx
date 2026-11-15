@@ -29,9 +29,12 @@ export default function PaginaInformes() {
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState("");
   const esAdmin = perfil.rol === "administrador";
+  // Los coordinadores sacan informes de su alcance: RLS limita lo que la base de datos les entrega.
+  const puedeVer = esAdmin || perfil.rol === "coordinador_sector" || perfil.rol === "coordinador_zona";
+  const [incluirPersonas, setIncluirPersonas] = useState(false);
 
   useEffect(() => {
-    if (!esAdmin) {
+    if (!puedeVer) {
       router.replace("/mapa");
       return;
     }
@@ -40,9 +43,9 @@ export default function PaginaInformes() {
       .select("*")
       .order("numero")
       .then(({ data }) => setZonas((data ?? []) as Zona[]));
-  }, [esAdmin, router]);
+  }, [puedeVer, router]);
 
-  if (!esAdmin) return null;
+  if (!puedeVer) return null;
 
   async function ejecutar(accion: () => Promise<void>) {
     setOcupado(true);
@@ -57,7 +60,7 @@ export default function PaginaInformes() {
 
   const zonaNombre = zonas.find((z) => z.id === zona)?.nombre ?? "Todas";
   const datos = () =>
-    cargarDatosInforme(crearClienteNavegador(), { ...periodo, zona, zonaNombre, incluirCasos });
+    cargarDatosInforme(crearClienteNavegador(), { ...periodo, zona, zonaNombre, incluirCasos, incluirPersonas });
 
   const pdf = () =>
     ejecutar(async () => {
@@ -81,6 +84,7 @@ export default function PaginaInformes() {
           zona: "",
           zonaNombre: "Todas",
           incluirCasos: true,
+          incluirPersonas: true,
         }),
       ]);
       await generarExcel(d);
@@ -135,6 +139,18 @@ export default function PaginaInformes() {
             </span>
             <span className="tenue" style={{ fontSize: "0.82rem" }}>
               Precaución: contiene información sensible de personas enfermas, consejería y nombres de contacto.
+            </span>
+          </div>
+        </label>
+        <label className={`casilla ${incluirPersonas ? "casilla-activa" : ""}`}>
+          <input type="checkbox" checked={incluirPersonas} onChange={(e) => setIncluirPersonas(e.target.checked)} />
+          <div>
+            <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+              <ShieldAlert size={16} style={{ color: "var(--aviso)" }} />
+              Incluir listados con nombres de VIS, amigos y visitas
+            </span>
+            <span className="tenue" style={{ fontSize: "0.82rem" }}>
+              Precaución: datos personales de niños y amigos (teléfonos, familia, peticiones de oración).
             </span>
           </div>
         </label>
@@ -196,7 +212,7 @@ export default function PaginaInformes() {
       </div>
 
       {/* Copia de Seguridad */}
-      <div className="tarjeta pila" style={{ borderLeft: "4px solid var(--marca)" }}>
+      {esAdmin && <div className="tarjeta pila" style={{ borderLeft: "4px solid var(--marca)" }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
           <div style={{ width: 42, height: 42, borderRadius: 10, background: "var(--marca-fondo)", color: "var(--marca)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <Database size={22} />
@@ -215,7 +231,7 @@ export default function PaginaInformes() {
             <span>Exportar copia histórica completa (.xlsx)</span>
           </button>
         </div>
-      </div>
+      </div>}
 
       {error && (
         <div className="aviso" role="alert" style={{ background: "var(--peligro-fondo)", borderColor: "var(--peligro-borde)", color: "var(--peligro-texto)" }}>

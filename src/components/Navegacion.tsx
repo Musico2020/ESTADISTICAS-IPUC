@@ -45,7 +45,7 @@ export default function Navegacion({ perfil }: { perfil: Perfil }) {
   const ruta = usePathname();
   const enlaces = [
     ...COMUNES,
-    ...(perfil.rol === "administrador" ? ADMIN : []),
+    ...(perfil.rol === "administrador" ? ADMIN : perfil.rol === "coordinador_sector" || perfil.rol === "coordinador_zona" ? ADMIN.filter((e) => e.href === "/informes") : []),
     { href: "/cuenta", texto: "Cuenta", icono: User },
   ];
 
