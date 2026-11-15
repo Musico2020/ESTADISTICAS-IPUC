@@ -22,13 +22,14 @@ import MapaDinamico from "@/components/MapaDinamico";
 import { usePerfil } from "@/components/ContextoPerfil";
 import { construirCasos, reporteVacio, validarReporte, type DatosReporte, type Errores } from "@/lib/reporte/validar";
 import { crearClienteNavegador } from "@/lib/supabase/cliente";
+import { eligeZona, zonasPermitidas } from "@/lib/roles";
 import { ETIQUETA_DIFICULTAD, type Dificultad, type Manzana, type Zona } from "@/lib/tipos";
 
 type Props = { inicial?: DatosReporte; reporteId?: string; alGuardar: (id: string) => void };
 
 export default function FormularioReporte({ inicial, reporteId, alGuardar }: Props) {
   const perfil = usePerfil();
-  const eligeZona = perfil.rol !== "coordinador";
+  const puedeElegir = eligeZona(perfil);
   const [d, setD] = useState<DatosReporte>(() => inicial ?? {
     ...reporteVacio(),
     zona_id: perfil.zona_id ?? "",
@@ -169,7 +170,7 @@ export default function FormularioReporte({ inicial, reporteId, alGuardar }: Pro
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
           {texto("responsable_nombre", "Nombre del responsable", "text", <UserCheck size={16} />, "Ej: Juan Pérez")}
 
-          {eligeZona && !reporteId ? (
+          {puedeElegir && !reporteId ? (
             <Campo etiqueta="Zona / Bloque asignado" error={errores.zona_id} icono={<Layers size={16} />}>
               <select
                 name="zona_id"
@@ -177,7 +178,7 @@ export default function FormularioReporte({ inicial, reporteId, alGuardar }: Pro
                 onChange={(e) => setD((a) => ({ ...a, zona_id: e.target.value, manzanas: [] }))}
               >
                 <option value="">Seleccione una zona...</option>
-                {zonas.map((z) => (
+                {zonasPermitidas(perfil, zonas).map((z) => (
                   <option key={z.id} value={z.id}>
                     {z.nombre}
                   </option>

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { usePerfil } from "@/components/ContextoPerfil";
 import { crearClienteNavegador } from "@/lib/supabase/cliente";
+import { ETIQUETA_ROL } from "@/lib/roles";
 
 async function cerrarSesion() {
   await crearClienteNavegador().auth.signOut();
@@ -89,7 +90,7 @@ export default function PaginaCuenta() {
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
             <span className={`badge ${perfil.rol === "administrador" ? "badge-marca" : "badge-tenue"}`}>
               <ShieldCheck size={13} />
-              <span>{perfil.rol === "administrador" ? "Administrador General" : perfil.rol === "usuario" ? "Usuario de todas las zonas" : "Coordinador de Zona"}</span>
+              <span>{ETIQUETA_ROL[perfil.rol]}</span>
             </span>
             <span className="badge badge-exito">
               <span className="punto-estado punto-exito" />

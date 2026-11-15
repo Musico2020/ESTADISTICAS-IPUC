@@ -25,6 +25,7 @@ import { usePerfil } from "@/components/ContextoPerfil";
 import FormularioReporte from "@/components/FormularioReporte";
 import { reporteVacio, type DatosReporte } from "@/lib/reporte/validar";
 import { crearClienteNavegador } from "@/lib/supabase/cliente";
+import { puedeCorregir } from "@/lib/roles";
 import { ETIQUETA_CASO, ETIQUETA_DIFICULTAD, type Dificultad, type TipoCaso } from "@/lib/tipos";
 
 type Reporte = Record<string, string | number | boolean | null> & {
@@ -33,7 +34,7 @@ type Reporte = Record<string, string | number | boolean | null> & {
   creado_por: string;
   origen: "app" | "google_forms";
   manzanas_pendientes: boolean;
-  zonas: { nombre: string } | null;
+  zonas: { nombre: string; sector_id: string | null } | null;
   reporte_manzanas: { manzana_id: string; manzanas: { codigo: string } | null }[];
   casos_especiales: { tipo: TipoCaso; descripcion: string; estado: string }[];
 };
@@ -81,7 +82,7 @@ export default function DetalleReporte() {
   const cargar = useCallback(async () => {
     const { data } = await crearClienteNavegador()
       .from("reportes")
-      .select("*,zonas(nombre),reporte_manzanas(manzana_id,manzanas(codigo)),casos_especiales(tipo,descripcion,estado)")
+      .select("*,zonas(nombre,sector_id),reporte_manzanas(manzana_id,manzanas(codigo)),casos_especiales(tipo,descripcion,estado)")
       .eq("id", id)
       .maybeSingle();
     setR(data as unknown as Reporte | null);
@@ -109,7 +110,7 @@ export default function DetalleReporte() {
   }
 
   const esAdmin = perfil.rol === "administrador";
-  const puedeEditar = esAdmin || r.creado_por === perfil.id;
+  const puedeEditar = puedeCorregir(perfil, r.zonas ? { id: r.zona_id, sector_id: r.zonas.sector_id } : undefined, r.creado_por);
 
   async function eliminar() {
     if (!window.confirm("¿Eliminar este reporte? Esta acción no se puede deshacer.")) return;

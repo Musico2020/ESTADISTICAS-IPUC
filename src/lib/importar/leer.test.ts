@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { traducirFila } from "./leer";
 
-const zonas = [{ id: "z1", numero: 1 }];
+const zonas = [{ id: "z1", numero: 1, sector: 1 }, { id: "z2", numero: 2, sector: 1 }, { id: "z4", numero: 4, sector: 2 }, { id: "z5", numero: 5, sector: 2 }];
 const fila = (c: Record<string, unknown> = {}) => ({
   "Marca temporal": "15/03/2026 10:00:00", "Nombre completo ": "Ana Díaz", "  Zona / Bloque asignado  ": "Zona 1",
   "  Nombre del coordinador de zona  ": "Luis", "  Fecha de la jornada evangelística   ": "2026-03-15",
@@ -18,6 +18,12 @@ const fila = (c: Record<string, unknown> = {}) => ({
 });
 
 describe("traducirFila", () => {
+  it("lleva la Zona N del formulario a la primera zona del sector N y lo advierte", async () => {
+    const r = await traducirFila(fila({ "  Zona / Bloque asignado  ": "Zona 2" }), zonas);
+    if (!r.ok) throw new Error(r.motivo);
+    expect(r.reporte.zona_id).toBe("z4");
+    expect(r.advertencias.join()).toMatch(/sector 2/);
+  });
   it("traduce una fila válida ignorando espacios en encabezados", async () => {
     const r = await traducirFila(fila(), zonas);
     if (!r.ok) throw new Error(r.motivo);

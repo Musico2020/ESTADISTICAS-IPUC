@@ -3,17 +3,18 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { colorManzana } from "@/lib/mapa/avance";
-import type { EstadoManzana, Manzana, Zona } from "@/lib/tipos";
+import type { EstadoManzana, Manzana, Sector, Zona } from "@/lib/tipos";
 
 type Props = {
   zonas: Zona[];
+  sectores?: Sector[];
   manzanas: Manzana[];
   estados: EstadoManzana[];
   seleccion?: Set<string>;
   alTocar?: (m: Manzana) => void;
 };
 
-export default function MapaManzanas({ zonas, manzanas, estados, seleccion, alTocar }: Props) {
+export default function MapaManzanas({ zonas, sectores = [], manzanas, estados, seleccion, alTocar }: Props) {
   const contenedor = useRef<HTMLDivElement>(null);
   const mapa = useRef<L.Map | null>(null);
   const capa = useRef<L.LayerGroup | null>(null);
@@ -45,12 +46,14 @@ export default function MapaManzanas({ zonas, manzanas, estados, seleccion, alTo
       else pol.bindPopup(`<b>${m.codigo}</b><br>${estado ? `Última jornada: ${estado.ultima_fecha}<br>Jornadas: ${estado.jornadas}` : "Sin predicar"}`);
       destino.addLayer(pol);
     }
+    // Zonas con línea fina punteada; sectores con línea gruesa encima.
     const bordes = L.featureGroup(zonas.map((z) => L.geoJSON(z.geometria, {
-      interactive: false, style: { color: z.color_borde, weight: 5, fill: false },
+      interactive: false, style: { color: z.color_borde, weight: sectores.length ? 2 : 5, dashArray: sectores.length ? "6 4" : undefined, fill: false },
     })));
     destino.addLayer(bordes);
+    for (const s of sectores) destino.addLayer(L.geoJSON(s.geometria, { interactive: false, style: { color: s.color_borde, weight: 5, fill: false } }));
     if (!encuadrado.current && zonas.length) { mapa.current.fitBounds(bordes.getBounds()); encuadrado.current = true; }
-  }, [zonas, manzanas, estados, seleccion, alTocar]);
+  }, [zonas, sectores, manzanas, estados, seleccion, alTocar]);
 
   return <div ref={contenedor} className="mapa" role="application" aria-label="Mapa de manzanas" />;
 }

@@ -32,7 +32,7 @@ async function sha256(texto: string) {
   return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 
-export async function traducirFila(fila: Record<string, unknown>, zonas: { id: string; numero: number }[]): Promise<ResultadoFila> {
+export async function traducirFila(fila: Record<string, unknown>, zonas: { id: string; numero: number; sector?: number }[]): Promise<ResultadoFila> {
   const datos = new Map(Object.entries(fila).map(([k, v]) => [normalizar(k), v]));
   const tx = (clave: string) => String(datos.get(clave) ?? "").trim();
   const advertencias: string[] = [];
@@ -46,7 +46,9 @@ export async function traducirFila(fila: Record<string, unknown>, zonas: { id: s
   const si = (clave: string) => normalizar(tx(clave)).startsWith("s");
 
   const numZona = tx("zona / bloque asignado").match(/^zona\s*(\d)$/i)?.[1];
-  const zona = zonas.find((z) => z.numero === Number(numZona));
+  // "Zona N" del formulario antiguo es el sector N; el reporte va a la primera zona de ese sector.
+  const delSector = zonas.filter((z) => z.sector === Number(numZona)).sort((a, b) => a.numero - b.numero);
+  const zona = delSector[0] ?? zonas.find((z) => z.sector === undefined && z.numero === Number(numZona));
   if (!zona) return { ok: false, motivo: `Zona inválida: "${tx("zona / bloque asignado")}"` };
   const fecha = aFecha(datos.get("fecha de la jornada evangelística"));
   if (!fecha) return { ok: false, motivo: `Fecha inválida: "${tx("fecha de la jornada evangelística")}"` };
@@ -64,6 +66,7 @@ export async function traducirFila(fila: Record<string, unknown>, zonas: { id: s
   if (si("¿se identificó alguna persona sorda?")) casos.push({ tipo: "sordo", descripcion });
   if (si("¿se detectó algún caso que requiera consejería o visitación especial?")) casos.push({ tipo: "consejeria", descripcion });
 
+  if (delSector.length > 1) advertencias.push(`Asignado a la ${"Zona " + zona.numero}, la primera del sector ${numZona}. Corrija la zona si corresponde a otra.`);
   return {
     ok: true, casos, advertencias,
     reporte: {

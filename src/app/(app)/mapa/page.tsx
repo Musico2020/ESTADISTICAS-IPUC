@@ -6,10 +6,11 @@ import SelectorPeriodo, { type Periodo } from "@/components/SelectorPeriodo";
 import { calcularAvance, COLOR_ALCANZADA, COLOR_SIN_PREDICAR } from "@/lib/mapa/avance";
 import { periodoDeAnio } from "@/lib/mapa/periodo";
 import { crearClienteNavegador } from "@/lib/supabase/cliente";
-import type { EstadoManzana, Manzana, Zona } from "@/lib/tipos";
+import type { EstadoManzana, Manzana, Sector, Zona } from "@/lib/tipos";
 
 export default function PaginaMapa() {
   const [zonas, setZonas] = useState<Zona[]>([]);
+  const [sectores, setSectores] = useState<Sector[]>([]);
   const [manzanas, setManzanas] = useState<Manzana[]>([]);
   const [estados, setEstados] = useState<EstadoManzana[]>([]);
   const [periodo, setPeriodo] = useState<Periodo>(() => periodoDeAnio(new Date().getFullYear()));
@@ -20,17 +21,19 @@ export default function PaginaMapa() {
     setError(false);
     setCargando(true);
     const db = crearClienteNavegador();
-    const [z, m, e] = await Promise.all([
+    const [z, m, e, s] = await Promise.all([
       db.from("zonas").select("*").order("numero"),
       db.from("manzanas").select("*").order("codigo"),
       db.rpc("estado_manzanas", { p_desde: periodo.desde, p_hasta: periodo.hasta }),
+      db.from("sectores").select("*").order("numero"),
     ]);
     setCargando(false);
-    if (z.error || m.error || e.error) {
+    if (z.error || m.error || e.error || s.error) {
       setError(true);
       return;
     }
     setZonas(z.data as Zona[]);
+    setSectores(s.data as Sector[]);
     setManzanas(m.data as Manzana[]);
     setEstados(e.data as EstadoManzana[]);
   }, [periodo]);
@@ -85,14 +88,19 @@ export default function PaginaMapa() {
           avance={total}
           esPrincipal
         />
-        {zonas.map((z) => (
-          <TarjetaAvance
-            key={z.id}
-            titulo={z.nombre}
-            avance={calcularAvance(manzanas, estados, z.id)}
-            color={z.color_borde}
-          />
-        ))}
+        {sectores.map((s) => {
+          const propias = zonas.filter((z) => z.sector_id === s.id);
+          const ids = new Set(propias.map((z) => z.id));
+          return (
+            <TarjetaAvance
+              key={s.id}
+              titulo={`Sector ${s.numero}`}
+              avance={calcularAvance(manzanas.filter((m) => ids.has(m.zona_id)), estados)}
+              color={s.color_borde}
+              zonas={propias.map((z) => ({ nombre: z.nombre, avance: calcularAvance(manzanas, estados, z.id) }))}
+            />
+          );
+        })}
       </div>
 
       {/* LEYENDA Y MAPA */}
@@ -108,11 +116,11 @@ export default function PaginaMapa() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
             <Layers size={15} style={{ color: "var(--tenue)" }} />
-            <span className="tenue">La línea exterior gruesa delimita cada zona / bloque</span>
+            <span className="tenue">Línea gruesa: sector · línea punteada: zona</span>
           </div>
         </div>
 
-        <MapaDinamico zonas={zonas} manzanas={manzanas} estados={estados} />
+        <MapaDinamico zonas={zonas} sectores={sectores} manzanas={manzanas} estados={estados} />
       </div>
 
       <style jsx>{`
@@ -133,11 +141,13 @@ function TarjetaAvance({
   avance,
   color,
   esPrincipal,
+  zonas,
 }: {
   titulo: string;
   avance: ReturnType<typeof calcularAvance>;
   color?: string;
   esPrincipal?: boolean;
+  zonas?: { nombre: string; avance: ReturnType<typeof calcularAvance> }[];
 }) {
   return (
     <div
@@ -189,6 +199,16 @@ function TarjetaAvance({
           />
         </div>
       </div>
+      {zonas && zonas.length > 0 && (
+        <ul style={{ listStyle: "none", margin: "10px 0 0", padding: 0, display: "grid", gap: 4, fontSize: "0.8rem" }}>
+          {zonas.map((z) => (
+            <li key={z.nombre} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+              <span>{z.nombre}</span>
+              <span className="tenue">{z.avance.alcanzadas}/{z.avance.total} · {z.avance.porcentaje}%</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

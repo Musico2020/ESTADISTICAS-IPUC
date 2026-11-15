@@ -51,8 +51,22 @@ El plan gratuito de Supabase no incluye copias descargables. Cada mes, descargue
 
 Se entra con un nombre de usuario, no con correo. Internamente Supabase guarda un correo en el dominio reservado `usuarios-ipuc.example.com` (ver `src/lib/usuarios.ts`).
 
-| Rol | Puede |
+| Rol | Alcance |
 |---|---|
-| `administrador` | Todo, incluidos Informes y Administración |
-| `usuario` | Reportar y consultar en las 4 zonas, sin Informes ni Administración |
-| `coordinador` | Reportar y consultar solo en su zona |
+| `administrador` (superusuario) | Todo, incluidos Informes y Administración |
+| `coordinador_sector` | Ve y corrige las 3 zonas de su sector |
+| `coordinador_zona` | Ve y corrige su zona |
+| `lider_zona` | Registra en su zona y corrige lo que registró |
+| `usuario` | Cuenta compartida antigua: registra en las 12 zonas |
+
+## Sectores y zonas
+
+El territorio tiene 4 sectores con 3 zonas cada uno. Para regenerarlos:
+
+```
+node scripts/generar-manzanas.mjs   # sectores y manzanas desde data/zonas-pixeles.json
+node scripts/generar-zonas.mjs      # divide cada sector en 3 zonas
+node scripts/cargar-semilla.mjs
+```
+
+Para mover una manzana de zona, agregue `{"Z02-005": 1}` en `data/zonas-ajustes.json` y regenere.

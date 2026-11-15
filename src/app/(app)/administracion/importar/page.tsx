@@ -78,13 +78,13 @@ export default function PaginaImportar() {
     setResultado("");
     setFilas(null);
     try {
-      const { data: zonas, error: fallo } = await crearClienteNavegador().from("zonas").select("id,numero");
+      const { data: zonas, error: fallo } = await crearClienteNavegador().from("zonas").select("id,numero,sectores(numero)");
       if (fallo) throw fallo;
       const crudas = await leerArchivo(archivo);
       setFilas(
         await Promise.all(
           crudas.map(async (f, i) => ({
-            ...(await traducirFila(f, zonas ?? [])),
+            ...(await traducirFila(f, (zonas ?? []).map((z) => ({ id: z.id, numero: z.numero, sector: (z.sectores as unknown as { numero: number } | null)?.numero })))),
             numero: i + 2,
           }))
         )

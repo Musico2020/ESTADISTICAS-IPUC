@@ -19,9 +19,10 @@ import {
 } from "lucide-react";
 import { usePerfil } from "@/components/ContextoPerfil";
 import { crearClienteNavegador } from "@/lib/supabase/cliente";
-import type { Manzana, Perfil, Rol, Zona } from "@/lib/tipos";
+import type { Manzana, Perfil, Rol, Sector, Zona } from "@/lib/tipos";
+import { ETIQUETA_ROL } from "@/lib/roles";
 
-const NUEVO = { usuario: "", password: "", nombre_completo: "", rol: "coordinador" as Rol, zona_id: "" };
+const NUEVO = { usuario: "", password: "", nombre_completo: "", rol: "lider_zona" as Rol, zona_id: "", sector_id: "" };
 
 export default function PaginaAdministracion() {
   const perfil = usePerfil();
@@ -29,6 +30,7 @@ export default function PaginaAdministracion() {
   const esAdmin = perfil.rol === "administrador";
   const [perfiles, setPerfiles] = useState<Perfil[]>([]);
   const [zonas, setZonas] = useState<Zona[]>([]);
+  const [sectores, setSectores] = useState<Sector[]>([]);
   const [nuevo, setNuevo] = useState(NUEVO);
   const [mensaje, setMensaje] = useState("");
   const [busqueda, setBusqueda] = useState("");
@@ -37,10 +39,12 @@ export default function PaginaAdministracion() {
 
   const cargar = useCallback(async () => {
     const db = crearClienteNavegador();
-    const [p, z] = await Promise.all([
+    const [p, z, s] = await Promise.all([
       db.from("perfiles").select("*").order("nombre_completo"),
       db.from("zonas").select("*").order("numero"),
+      db.from("sectores").select("*").order("numero"),
     ]);
+    setSectores((s.data ?? []) as Sector[]);
     setPerfiles((p.data ?? []) as Perfil[]);
     setZonas((z.data ?? []) as Zona[]);
   }, []);
@@ -185,13 +189,26 @@ export default function PaginaAdministracion() {
                 value={nuevo.rol}
                 onChange={(e) => setNuevo({ ...nuevo, rol: e.target.value as Rol })}
               >
-                <option value="coordinador">Coordinador de Zona</option>
-                <option value="usuario">Usuario (todas las zonas)</option>
-                <option value="administrador">Administrador General</option>
+                <option value="lider_zona">{ETIQUETA_ROL.lider_zona}</option>
+                <option value="coordinador_zona">{ETIQUETA_ROL.coordinador_zona}</option>
+                <option value="coordinador_sector">{ETIQUETA_ROL.coordinador_sector}</option>
+                <option value="administrador">{ETIQUETA_ROL.administrador}</option>
               </select>
             </label>
 
-            {nuevo.rol === "coordinador" && (
+            {nuevo.rol === "coordinador_sector" && (
+              <label className="campo">
+                <span><Layers size={15} /> Sector asignado</span>
+                <select required value={nuevo.sector_id} onChange={(e) => setNuevo({ ...nuevo, sector_id: e.target.value })}>
+                  <option value="">Seleccione un sector...</option>
+                  {sectores.map((s) => (
+                    <option key={s.id} value={s.id}>Sector {s.numero}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {(nuevo.rol === "coordinador_zona" || nuevo.rol === "lider_zona") && (
               <label className="campo">
                 <span><Layers size={15} /> Zona asignada</span>
                 <select
@@ -202,7 +219,7 @@ export default function PaginaAdministracion() {
                   <option value="">Seleccione una zona...</option>
                   {zonas.map((z) => (
                     <option key={z.id} value={z.id}>
-                      {z.nombre}
+                      {z.nombre} · Sector {sectores.find((s) => s.id === z.sector_id)?.numero}
                     </option>
                   ))}
                 </select>
@@ -279,12 +296,12 @@ export default function PaginaAdministracion() {
                     </td>
                     <td>
                       <span className={`badge ${p.rol === "administrador" ? "badge-marca" : "badge-tenue"}`}>
-                        {p.rol === "administrador" ? "Administrador" : p.rol === "usuario" ? "Usuario" : "Coordinador"}
+                        {ETIQUETA_ROL[p.rol]}
                       </span>
                     </td>
                     <td>
                       <span className="badge badge-tenue">
-                        <Layers size={12} /> {nombreZona(p.zona_id)}
+                        <Layers size={12} /> {p.sector_id ? `Sector ${sectores.find((s) => s.id === p.sector_id)?.numero ?? ""}` : nombreZona(p.zona_id)}
                       </span>
                     </td>
                     <td>

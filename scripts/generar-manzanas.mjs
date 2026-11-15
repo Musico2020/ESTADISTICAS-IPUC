@@ -121,19 +121,12 @@ for (const p of poligonos) {
   if (!zona) continue;
   const n = (contadores.get(zona.numero) ?? 0) + 1;
   contadores.set(zona.numero, n);
-  manzanas.push({ codigo: `Z${zona.numero}-${String(n).padStart(3, "0")}`, zona_numero: zona.numero,
+  manzanas.push({ codigo: `S${zona.numero}-${String(n).padStart(3, "0")}`, sector_numero: zona.numero,
     geometria: { type: "Polygon", coordinates: p.geometry.coordinates.map((a) => a.map(([x, y]) => [redondear(x), redondear(y)])) } });
 }
 
 fs.mkdirSync("supabase/seed", { recursive: true });
-fs.writeFileSync("supabase/seed/zonas.json", JSON.stringify(zonasGeo));
+fs.writeFileSync("supabase/seed/sectores.json", JSON.stringify(zonasGeo));
 fs.writeFileSync("supabase/seed/manzanas.json", JSON.stringify(manzanas));
-fs.writeFileSync("public/revision.html", `<!doctype html><meta charset="utf-8"><title>Revisión de manzanas</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>html,body,#m{height:100%;margin:0}</style><div id="m"></div><script>
-const Z=${JSON.stringify(zonasGeo)},M=${JSON.stringify(manzanas)};
-const m=L.map('m');L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(m);
-const g=L.featureGroup(Z.map(z=>L.geoJSON(z.geometria,{style:{color:z.color_borde,weight:4,fill:false}}))).addTo(m);
-M.forEach(a=>L.geoJSON(a.geometria,{style:{color:'#555',weight:1,fillColor:'#ef4444',fillOpacity:.35}}).bindTooltip(a.codigo).addTo(m));
-m.fitBounds(g.getBounds());</script>`);
-console.log("Manzanas por zona:", Object.fromEntries(contadores), "| descartadas por área:", descartadas, "| total:", manzanas.length);
+// La división en zonas y la página de revisión las genera scripts/generar-zonas.mjs.
+console.log("Manzanas por sector:", Object.fromEntries(contadores), "| descartadas por área:", descartadas, "| total:", manzanas.length);
