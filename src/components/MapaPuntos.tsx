@@ -50,9 +50,10 @@ export default function MapaPuntos({ zonas, sectores = [], puntos = [], marcador
     if (!encuadrado.current && zonas.length) { mapa.current.fitBounds(bordes.getBounds()); encuadrado.current = true; }
   }, [zonas, sectores, puntos, marcador]);
 
-  // Al tomar la ubicación con el GPS, el mapa se acerca a la casa.
+  // Al tomar la ubicación con el GPS, el mapa se acerca a la casa. Sin animación: si la página cambia
+  // a mitad del zoom, Leaflet falla al terminarlo sobre un mapa que ya no existe.
   useEffect(() => {
-    if (marcador && mapa.current) mapa.current.setView([marcador.lat, marcador.lon], Math.max(mapa.current.getZoom(), 17));
+    if (marcador && mapa.current) mapa.current.setView([marcador.lat, marcador.lon], Math.max(mapa.current.getZoom(), 17), { animate: false });
   }, [marcador]);
 
   return <div ref={contenedor} className="mapa" role="application" aria-label="Mapa de cultos" />;
