@@ -89,6 +89,7 @@ export default function DetalleCulto() {
       <div className="fila">
         {puedeCorregir(perfil, zona, c.creado_por) && <button className="boton" onClick={() => setEditando(true)}><Pencil size={16} /><span>Corregir</span></button>}
         {perfil.rol === "administrador" && <button className="boton peligro" onClick={() => void eliminar()}><Trash2 size={16} /><span>Eliminar</span></button>}
+        <Link href={`/amigos/nuevo?culto=${c.id}`} className="boton secundario">Registrar amigo de este culto</Link>
         <Link href="/cultos" className="boton secundario">Volver a cultos</Link>
       </div>
     </div>

@@ -253,3 +253,52 @@ describe("cultos en casas", () => {
     expect((await a.from("cultos").select("id")).data ?? []).toEqual([]);
   });
 });
+
+describe("VIS, amigos y visitas", () => {
+  const ninoFicha = (zona_id: string, c: Record<string, unknown> = {}) => ({ tipo: "nino_vis", zona_id, nombre: "NINO-SECRETO", edad: 8,
+    acudiente: "Madre", autorizacion_acudiente: true, telefono: "3001234567", calamidad: "CALAMIDAD-SECRETA", ...c });
+  let lider: SupabaseClient, ninoZ1: string;
+  beforeAll(async () => {
+    lider = (await usuario("lider_zona", z1)).c;
+    const r = await lider.from("personas").insert(ninoFicha(z1)).select("id").single();
+    if (r.error) throw r.error;
+    ninoZ1 = r.data.id;
+  });
+  afterAll(async () => { await srv.from("personas").delete().in("nombre", ["NINO-SECRETO", "AMIGO-SECRETO"]); });
+  it("sin autorización del acudiente la base de datos rechaza la ficha", async () => {
+    expect((await lider.from("personas").insert(ninoFicha(z1, { autorizacion_acudiente: false }))).error).not.toBeNull();
+    expect((await lider.from("personas").insert(ninoFicha(z1, { edad: 19 }))).error).not.toBeNull();
+    expect((await lider.from("personas").insert(ninoFicha(z1, { acudiente: null }))).error).not.toBeNull();
+  });
+  it("otra zona no ve la ficha del niño ni sus visitas", async () => {
+    await lider.from("visitas").insert({ persona_id: ninoZ1, zona_id: z1, fecha: "2099-03-01", notas: "VISITA-SECRETA" });
+    const { c } = await usuario("lider_zona", zVecina);
+    expect((await c.from("personas").select("id").eq("id", ninoZ1)).data).toEqual([]);
+    expect((await c.from("visitas").select("id").eq("persona_id", ninoZ1)).data).toEqual([]);
+  });
+  it("no se puede colar una visita en otra zona cambiando su zona", async () => {
+    const { c } = await usuario("lider_zona", zVecina);
+    const r = await c.from("visitas").insert({ persona_id: ninoZ1, zona_id: zVecina, fecha: "2099-03-02" });
+    expect(r.error).not.toBeNull();
+  });
+  it("el coordinador de sector ve la ficha; el de otro sector no", async () => {
+    const a = (await usuario("coordinador_sector", null, s1)).c;
+    expect((await a.from("personas").select("calamidad").eq("id", ninoZ1)).data).toEqual([{ calamidad: "CALAMIDAD-SECRETA" }]);
+    const b = (await usuario("coordinador_sector", null, s2)).c;
+    expect((await b.from("personas").select("id").eq("id", ninoZ1)).data).toEqual([]);
+  });
+  it("otro líder de la zona registra visitas pero no corrige la ficha ajena", async () => {
+    const { c } = await usuario("lider_zona", z1);
+    expect((await c.from("visitas").insert({ persona_id: ninoZ1, zona_id: z1, fecha: "2099-03-03" })).error).toBeNull();
+    expect((await c.from("personas").update({ nombre: "CAMBIADO" }).eq("id", ninoZ1).select("id")).data).toEqual([]);
+  });
+  it("solo el administrador elimina fichas", async () => {
+    await lider.from("personas").delete().eq("id", ninoZ1);
+    expect((await srv.from("personas").select("id").eq("id", ninoZ1)).data).toHaveLength(1);
+  });
+  it("las funciones agregadas no exponen nombres de personas", async () => {
+    const { c } = await usuario("lider_zona", zVecina);
+    const r = await c.rpc("estadisticas", { p_desde: "2099-01-01", p_hasta: "2099-12-31" });
+    expect(JSON.stringify(r.data)).not.toMatch(/NINO-SECRETO|CALAMIDAD-SECRETA/);
+  });
+});
