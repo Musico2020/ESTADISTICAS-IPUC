@@ -22,7 +22,8 @@ export default function MapaManzanas({ zonas, sectores = [], manzanas, estados, 
 
   useEffect(() => {
     if (mapa.current || !contenedor.current) return;
-    mapa.current = L.map(contenedor.current);
+    // Vista inicial en el Barrio Dangond, por si las capas llegan antes de encuadrar.
+    mapa.current = L.map(contenedor.current).setView([10.4625, -73.2585], 15);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19, attribution: "&copy; OpenStreetMap",
     }).addTo(mapa.current);

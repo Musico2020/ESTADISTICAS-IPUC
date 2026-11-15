@@ -25,7 +25,9 @@ export default function MapaPuntos({ zonas, sectores = [], puntos = [], marcador
 
   useEffect(() => {
     if (mapa.current || !contenedor.current) return;
-    mapa.current = L.map(contenedor.current);
+    // Vista inicial en el Barrio Dangond: Leaflet no puede dibujar puntos antes de tener una vista,
+    // y los puntos pueden llegar antes que las zonas con las que se encuadra el mapa.
+    mapa.current = L.map(contenedor.current).setView([10.4625, -73.2585], 15);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(mapa.current);
     capa.current = L.layerGroup().addTo(mapa.current);
     mapa.current.on("click", (e: L.LeafletMouseEvent) => elegir.current?.(e.latlng.lat, e.latlng.lng));
