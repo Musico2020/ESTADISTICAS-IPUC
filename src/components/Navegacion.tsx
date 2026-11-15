@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Map as MapIcon,
+  Home,
   PlusCircle,
   ClipboardList,
   HeartPulse,
@@ -24,6 +25,7 @@ type EnlaceNav = {
 
 const COMUNES: EnlaceNav[] = [
   { href: "/mapa", texto: "Mapa", icono: MapIcon },
+  { href: "/cultos", texto: "Cultos", icono: Home },
   { href: "/nuevo-reporte", texto: "Nuevo reporte", icono: PlusCircle },
   { href: "/reportes", texto: "Reportes", icono: ClipboardList },
   { href: "/casos", texto: "Casos", icono: HeartPulse },

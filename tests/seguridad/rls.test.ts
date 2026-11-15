@@ -209,3 +209,47 @@ describe("jerarquía de sectores y zonas", () => {
     expect((await srv.from("perfiles").insert({ id: data.user!.id, nombre_completo: "X", rol: "lider_zona" })).error).not.toBeNull();
   });
 });
+
+describe("cultos en casas", () => {
+  const culto = (zona_id: string) => ({ zona_id, fecha: "2099-01-20", direccion: "DIRECCION-SECRETA", lat: 10.46, lon: -73.25,
+    hermanos: 5, amigos: 2, ninos: 1, ofrenda: 20000, hubo_enfermos: true, se_oro_enfermos: true });
+  let lider: SupabaseClient, cultoZ1: string;
+  beforeAll(async () => {
+    lider = (await usuario("lider_zona", z1)).c;
+    const r = await lider.from("cultos").insert(culto(z1)).select("id").single();
+    if (r.error) throw r.error;
+    cultoZ1 = r.data.id;
+  });
+  afterAll(async () => { await srv.from("cultos").delete().eq("fecha", "2099-01-20"); });
+  it("un líder registra en su zona y no en otra", async () => {
+    expect((await lider.from("cultos").insert(culto(zVecina))).error).not.toBeNull();
+  });
+  it("otra zona no ve el culto ni su ofrenda", async () => {
+    const { c } = await usuario("lider_zona", zVecina);
+    expect((await c.from("cultos").select("id").eq("id", cultoZ1)).data).toEqual([]);
+  });
+  it("el coordinador de sector lo ve y lo corrige; el de otro sector no", async () => {
+    const a = (await usuario("coordinador_sector", null, s1)).c;
+    expect((await a.from("cultos").update({ hermanos: 6 }).eq("id", cultoZ1).select("hermanos")).data).toEqual([{ hermanos: 6 }]);
+    const b = (await usuario("coordinador_sector", null, s2)).c;
+    expect((await b.from("cultos").select("id").eq("id", cultoZ1)).data).toEqual([]);
+    expect((await b.from("cultos").update({ hermanos: 99 }).eq("id", cultoZ1).select("id")).data).toEqual([]);
+  });
+  it("otro líder de la misma zona no lo corrige", async () => {
+    const { c } = await usuario("lider_zona", z1);
+    expect((await c.from("cultos").update({ hermanos: 99 }).eq("id", cultoZ1).select("id")).data).toEqual([]);
+  });
+  it("al corregir no se puede cambiar el autor", async () => {
+    const yo = (await lider.auth.getUser()).data.user!.id;
+    await lider.from("cultos").update({ creado_por: "00000000-0000-0000-0000-000000000000", hermanos: 7 }).eq("id", cultoZ1);
+    expect((await srv.from("cultos").select("creado_por").eq("id", cultoZ1).single()).data!.creado_por).toBe(yo);
+  });
+  it("nadie salvo el administrador elimina", async () => {
+    await lider.from("cultos").delete().eq("id", cultoZ1);
+    expect((await srv.from("cultos").select("id").eq("id", cultoZ1)).data).toHaveLength(1);
+  });
+  it("un visitante sin sesión no lee cultos", async () => {
+    const a = createClient(URL, ANON, { auth: { persistSession: false } });
+    expect((await a.from("cultos").select("id")).data ?? []).toEqual([]);
+  });
+});
