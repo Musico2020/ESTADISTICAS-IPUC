@@ -41,6 +41,7 @@ try {
   codigo = 1;
 } finally {
   await db.from("reportes").delete().in("creado_por", creados);
+  await db.from("hogares").delete().like("familia", `${marca}%`);
   await db.from("cultos").delete().like("direccion", `${marca}%`);
   await db.from("personas").delete().like("nombre", `${marca}%`);
   for (const id of creados) await db.auth.admin.deleteUser(id);

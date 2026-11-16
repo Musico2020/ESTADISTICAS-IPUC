@@ -70,19 +70,42 @@ void main() {
   });
 
   group('validarPersona', () {
-    Map<String, String> nino({bool autorizacion = true, String edad = '8', String acudiente = 'Madre'}) => validarPersona(
-        nino: true, zonaId: 'z1', nombre: 'Sofía', edad: edad, telefono: '', acudiente: acudiente,
-        autorizacion: autorizacion, pideOracion: false, peticion: '');
-    test('VIS exige autorización, acudiente y edad de menor', () {
-      expect(nino(), isEmpty);
-      expect(nino(autorizacion: false).keys, contains('autorizacion'));
-      expect(nino(acudiente: ' ').keys, contains('acudiente'));
-      expect(nino(edad: '18')['edad'], contains('amigo'));
+    test('un amigo solo exige nombre y zona', () {
+      expect(validarPersona(zonaId: 'z1', nombre: 'Carlos', edad: '', telefono: '', pideOracion: false, peticion: ''), isEmpty);
+      expect(validarPersona(zonaId: null, nombre: ' ', edad: '', telefono: '', pideOracion: false, peticion: '').keys, containsAll(['zona', 'nombre']));
     });
     test('un amigo que pide oración necesita la petición', () {
-      final e = validarPersona(nino: false, zonaId: 'z1', nombre: 'Carlos', edad: '', telefono: '', acudiente: '',
-          autorizacion: false, pideOracion: true, peticion: '');
+      final e = validarPersona(zonaId: 'z1', nombre: 'Carlos', edad: '', telefono: '', pideOracion: true, peticion: '');
       expect(e.keys, ['peticion']);
+    });
+  });
+
+  group('validarHogar', () {
+    Map<String, String> hogar(List<Integrante> integrantes, {bool autorizacion = false, String familia = 'Familia Pérez'}) => validarHogar(
+        zonaId: 'z1', familia: familia, direccion: 'Calle 1', telefono: '', pideOracion: false, peticion: '',
+        autorizacion: autorizacion, integrantes: integrantes);
+    Integrante adulto() => Integrante(nombre: 'Ana', edad: '34', parentesco: 'Madre');
+    test('acepta un hogar con un adulto', () => expect(hogar([adulto()]), isEmpty));
+    test('exige familia y al menos un integrante', () {
+      expect(hogar([], familia: ' ').keys, containsAll(['familia', 'integrantes']));
+    });
+    test('marca el error en el integrante que corresponde', () {
+      final e = hogar([adulto(), Integrante(nombre: '', edad: '7.5')]);
+      expect(e.keys, containsAll(['i1.nombre', 'i1.edad', 'i1.parentesco']));
+      expect(e.keys.where((k) => k.startsWith('i0.')), isEmpty);
+    });
+    test('con menores exige la autorización del adulto responsable', () {
+      final nino = Integrante(nombre: 'Luis', edad: '8', parentesco: 'Hijo');
+      expect(nino.esMenor, isTrue);
+      expect(hogar([adulto(), nino]).keys, contains('autorizacion'));
+      expect(hogar([adulto(), nino], autorizacion: true), isEmpty);
+    });
+    test('convierte el integrante en la fila que espera la base de datos', () {
+      final fila = Integrante(nombre: ' Ana ', edad: '34', parentesco: 'Madre', peticion: 'x').aFila();
+      expect(fila, containsPair('edad', 34));
+      expect(fila, containsPair('nombre', 'Ana'));
+      expect(fila, containsPair('peticion', null));
+      expect(fila, containsPair('telefono', null));
     });
   });
 

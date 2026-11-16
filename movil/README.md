@@ -5,11 +5,13 @@ App de Android para los líderes y coordinadores. Usa la misma base de datos de 
 ## Qué hace
 
 - Ingreso con usuario y contraseña, los mismos del sitio web.
-- **Culto en casa:** ubicación con el GPS del celular, asistencia, ofrenda y enfermos.
-- **VIS:** ficha del niño con la autorización obligatoria del acudiente.
+- **Culto en casa:** ubicación con el GPS del celular, asistencia con contadores, ofrenda y enfermos.
+- **VIS:** el hogar visitado con cada integrante de la familia. Si hay menores, se exige la autorización del adulto responsable.
 - **Amigo:** entregas, enfermos y peticiones de oración.
 - **Evangelismo:** jornada por manzanas, tocándolas en el mapa.
-- **Mapa de mi zona:** manzanas, cultos y fichas, con avisos en tiempo real.
+- **Mapa de mi zona:** manzanas, cultos, hogares VIS y amigos, con avisos en tiempo real.
+
+Los formularios van por pasos, con botones grandes para el dedo y el color de cada sección.
 
 Cada persona ve y registra solo dentro de su alcance. Esa regla la aplica la base de datos, no la app.
 

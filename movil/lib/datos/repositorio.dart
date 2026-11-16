@@ -43,13 +43,23 @@ class Repositorio {
       .lte('fecha', hasta);
 
   Future<List<Map<String, dynamic>>> personas() =>
-      db.from('personas').select('id,tipo,zona_id,nombre,edad,lat,lon,pide_oracion,enfermo').not('lat', 'is', null);
+      db.from('personas').select('id,tipo,zona_id,nombre,edad,lat,lon,pide_oracion,enfermo').eq('tipo', 'amigo').not('lat', 'is', null);
+
+  /// Hogares de VIS con la edad y la situación de sus integrantes.
+  Future<List<Map<String, dynamic>>> hogares({bool soloConUbicacion = true}) {
+    final q = db.from('hogares').select('id,zona_id,familia,direccion,lat,lon,pide_oracion,creado_en,personas(edad,enfermo,pide_oracion)');
+    return soloConUbicacion ? q.not('lat', 'is', null) : q;
+  }
 
   Future<String> guardarCulto(Map<String, dynamic> fila) async =>
       (await db.from('cultos').insert(fila).select('id').single())['id'] as String;
 
   Future<String> guardarPersona(Map<String, dynamic> fila) async =>
       (await db.from('personas').insert(fila).select('id').single())['id'] as String;
+
+  /// Guarda el hogar y sus integrantes en una sola transacción; la base de datos exige la autorización si hay menores.
+  Future<String> guardarHogar(Map<String, dynamic> hogar, List<Map<String, dynamic>> integrantes) async =>
+      await db.rpc('guardar_hogar', params: {'p_hogar': hogar, 'p_integrantes': integrantes}) as String;
 
   /// Guarda el reporte con sus manzanas y casos en una sola transacción (función de la base de datos).
   Future<String> guardarReporte(Map<String, dynamic> reporte, List<String> manzanas, List<Map<String, String>> casos) async =>

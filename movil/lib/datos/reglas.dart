@@ -89,27 +89,78 @@ Map<String, String> validarCulto({
   return e;
 }
 
+/// Ficha de un amigo. Los integrantes de los hogares de VIS se validan con validarHogar.
 Map<String, String> validarPersona({
-  required bool nino, required String? zonaId, required String nombre, required String edad, required String telefono,
-  required String acudiente, required bool autorizacion, required bool pideOracion, required String peticion,
+  required String? zonaId, required String nombre, required String edad, required String telefono,
+  required bool pideOracion, required String peticion,
 }) {
   final e = <String, String>{};
   if (zonaId == null || zonaId.isEmpty) e['zona'] = 'Elija la zona';
-  if (nombre.trim().isEmpty) e['nombre'] = nino ? 'Escriba el nombre del niño' : 'Escriba el nombre';
+  if (nombre.trim().isEmpty) e['nombre'] = 'Escriba el nombre';
   final ed = edad.trim();
-  if (nino && ed.isEmpty) {
-    e['edad'] = 'Escriba la edad del niño';
-  } else if (ed.isNotEmpty && !esEntero(ed)) {
+  if (ed.isNotEmpty && !esEntero(ed)) {
     e['edad'] = 'Escriba la edad en años, sin decimales';
-  } else if (ed.isNotEmpty && nino && int.parse(ed) > 17) {
-    e['edad'] = 'VIS es para menores de 18 años; registre a un adulto como amigo';
   } else if (ed.isNotEmpty && int.parse(ed) > 120) {
     e['edad'] = 'Revise la edad';
   }
   if (telefono.trim().isNotEmpty && !telefonoValido(telefono)) e['telefono'] = 'Escriba un teléfono de 7 a 10 dígitos';
-  if (nino && acudiente.trim().isEmpty) e['acudiente'] = 'Escriba el nombre y parentesco del acudiente';
-  if (nino && !autorizacion) e['autorizacion'] = 'Sin la autorización del acudiente no se pueden guardar los datos del niño';
   if (pideOracion && peticion.trim().isEmpty) e['peticion'] = 'Escriba la petición de oración';
+  return e;
+}
+
+const parentescos = ['Padre', 'Madre', 'Hijo', 'Hija', 'Abuelo', 'Abuela', 'Tío', 'Tía', 'Nieto', 'Nieta', 'Hermano', 'Hermana', 'Otro'];
+
+/// Una persona que vive en el hogar visitado. Los textos se editan directamente en el formulario.
+class Integrante {
+  Integrante({this.id, this.nombre = '', this.edad = '', this.parentesco, this.telefono = '', this.peticion = '',
+      this.enfermo = false, this.pideOracion = false, this.entregoVida = false, this.estado = 'nuevo'});
+  final String? id;
+  String nombre;
+  String edad;
+  String? parentesco;
+  String telefono;
+  String peticion;
+  bool enfermo;
+  bool pideOracion;
+  bool entregoVida;
+  String estado;
+
+  bool get esMenor => esEntero(edad) && int.parse(edad.trim()) < 18;
+
+  Map<String, dynamic> aFila() => {
+        'id': id, 'nombre': nombre.trim(), 'edad': int.parse(edad.trim()), 'parentesco': parentesco,
+        'telefono': telefono.trim().isEmpty ? null : telefono.trim(), 'enfermo': enfermo, 'pide_oracion': pideOracion,
+        'peticion': pideOracion && peticion.trim().isNotEmpty ? peticion.trim() : null, 'entrego_vida': entregoVida, 'estado_seguimiento': estado,
+      };
+}
+
+/// Errores del hogar. Los de cada integrante usan la clave `i<n>.<campo>`, por ejemplo "i1.edad".
+Map<String, String> validarHogar({
+  required String? zonaId, required String familia, required String direccion, required String telefono,
+  required bool pideOracion, required String peticion, required bool autorizacion, required List<Integrante> integrantes,
+}) {
+  final e = <String, String>{};
+  if (zonaId == null || zonaId.isEmpty) e['zona'] = 'Elija la zona';
+  if (familia.trim().isEmpty) e['familia'] = 'Escriba el nombre de la familia';
+  if (direccion.trim().isEmpty) e['direccion'] = 'Escriba la dirección del hogar';
+  if (telefono.trim().isNotEmpty && !telefonoValido(telefono)) e['telefono'] = 'Escriba un teléfono de 7 a 10 dígitos';
+  if (pideOracion && peticion.trim().isEmpty) e['peticion'] = 'Escriba la petición de oración';
+  if (integrantes.isEmpty) e['integrantes'] = 'Agregue al menos un integrante de la familia';
+  for (var n = 0; n < integrantes.length; n++) {
+    final i = integrantes[n];
+    if (i.nombre.trim().isEmpty) e['i$n.nombre'] = 'Escriba el nombre';
+    if (i.edad.trim().isEmpty) {
+      e['i$n.edad'] = 'Escriba la edad';
+    } else if (!esEntero(i.edad)) {
+      e['i$n.edad'] = 'Edad en años, sin decimales';
+    } else if (int.parse(i.edad.trim()) > 120) {
+      e['i$n.edad'] = 'Revise la edad';
+    }
+    if (i.parentesco == null || i.parentesco!.isEmpty) e['i$n.parentesco'] = 'Elija el parentesco';
+    if (i.telefono.trim().isNotEmpty && !telefonoValido(i.telefono)) e['i$n.telefono'] = 'Teléfono de 7 a 10 dígitos';
+    if (i.pideOracion && i.peticion.trim().isEmpty) e['i$n.peticion'] = 'Escriba la petición';
+  }
+  if (integrantes.any((i) => i.esMenor) && !autorizacion) e['autorizacion'] = 'Hay menores de edad: falta la autorización del adulto responsable';
   return e;
 }
 

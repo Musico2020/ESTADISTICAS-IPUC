@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'datos/repositorio.dart';
+import 'ui/tema.dart';
 import 'pantallas/ingreso.dart';
 import 'pantallas/inicio.dart';
 import 'pantallas/sesion.dart';
@@ -29,8 +30,8 @@ class AppEvangelismo extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
         title: 'Evangelismo IPUC',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(colorSchemeSeed: const Color(0xFF1D4ED8), useMaterial3: true),
-        darkTheme: ThemeData(colorSchemeSeed: const Color(0xFF1D4ED8), useMaterial3: true, brightness: Brightness.dark),
+        theme: temaIpuc(Colores.evangelismo),
+        darkTheme: temaIpuc(Colores.evangelismo, brillo: Brightness.dark),
         locale: const Locale('es', 'CO'),
         supportedLocales: const [Locale('es', 'CO'), Locale('es')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,

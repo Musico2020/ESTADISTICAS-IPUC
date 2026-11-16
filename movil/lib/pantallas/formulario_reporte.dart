@@ -4,6 +4,8 @@ import 'package:latlong2/latlong.dart';
 import '../datos/reglas.dart';
 import '../ui/campos.dart';
 import '../ui/mapa_base.dart';
+import '../ui/pasos.dart';
+import '../ui/tema.dart';
 import 'sesion.dart';
 
 /// Reporte de una jornada de evangelismo: se tocan en el mapa las manzanas trabajadas.
@@ -17,7 +19,7 @@ class FormularioReporte extends StatefulWidget {
 class _FormularioReporteState extends State<FormularioReporte> {
   late final _c = {
     for (final k in ['responsable', 'coordinador', 'direccion', 'hogares', 'personas', 'aceptan', 'nombres', 'resultado', 'caso', 'ninos', 'dificultad_otra', 'sugerencias'])
-      k: TextEditingController(text: k == 'responsable' || k == 'coordinador' ? widget.sesion.perfil.nombre : ''),
+      k: TextEditingController(text: k == 'responsable' || k == 'coordinador' ? widget.sesion.perfil.nombre : (['hogares', 'personas', 'aceptan', 'ninos'].contains(k) ? '0' : '')),
   };
   late String? _zona = widget.sesion.perfil.zonaId;
   String _fecha = hoyIso();
@@ -38,14 +40,19 @@ class _FormularioReporteState extends State<FormularioReporte> {
     });
   }
 
-  Future<void> _guardar() async {
+  Map<String, String> _validar([Set<String>? campos]) {
     final hayCaso = _enfermo || _sordo || _consejeria;
     final e = validarReporte(zonaId: _zona, responsable: _t('responsable'), coordinador: _t('coordinador'), fecha: _fecha,
         hogares: _t('hogares'), personas: _t('personas'), aceptan: _t('aceptan'), resultado: _t('resultado'),
         receptividad: _receptividad, dificultad: _dificultad, dificultadOtra: _t('dificultad_otra'),
         evangelismoNinos: _evangelismoNinos, ninos: _t('ninos'), hayCaso: hayCaso, descripcionCaso: _t('caso'), manzanas: _manzanas.length);
-    setState(() => _errores = e);
-    if (e.isNotEmpty) {
+    // Solo se marcan los errores del paso que se está revisando.
+    setState(() => _errores = campos == null ? e : {for (final k in e.keys) if (campos.contains(k)) k: e[k]!});
+    return e;
+  }
+
+  Future<void> _guardar() async {
+    if (_validar().isNotEmpty) {
       avisar(context, 'Revise los campos marcados', error: true);
       return;
     }
@@ -75,75 +82,80 @@ class _FormularioReporteState extends State<FormularioReporte> {
   @override
   Widget build(BuildContext context) {
     final s = widget.sesion;
-    Campo campo(String k, String etiqueta, {bool numero = false, int lineas = 1, String? ayuda}) =>
-        Campo(etiqueta, _c[k]!, numero: numero, lineas: lineas, ayuda: ayuda, error: _errores[k], alCambiar: () => _quitar(k));
+    Campo campo(String k, String etiqueta, {int lineas = 1, String? ayuda}) =>
+        Campo(etiqueta, _c[k]!, lineas: lineas, ayuda: ayuda, error: _errores[k], alCambiar: () => _quitar(k));
+    Contador contador(String k, String etiqueta) => Contador(etiqueta, _c[k]!, error: _errores[k], alCambiar: () => _quitar(k));
     final zona = s.misZonas.where((z) => z.id == _zona).toList();
     final codigos = s.manzanas.where((m) => _manzanas.contains(m.id)).map((m) => m.codigo).join(', ');
-    return Scaffold(
-      appBar: AppBar(title: const Text('Jornada de evangelismo')),
-      body: ListView(padding: const EdgeInsets.all(12), children: [
-        Seccion('Datos generales', icono: Icons.badge, [
-          campo('responsable', 'Nombre del responsable'),
-          campo('coordinador', 'Nombre del coordinador de zona'),
-          SelectorFecha(etiqueta: 'Fecha de la jornada', valor: _fecha, error: _errores['fecha'], alCambiar: (f) => setState(() { _fecha = f; _errores.remove('fecha'); })),
-          SelectorZona(zonas: s.misZonas, valor: _zona, puedeElegir: s.eligeZona, error: _errores['zona'],
-              alCambiar: (z) => setState(() { _zona = z; _manzanas.clear(); _errores.remove('zona'); })),
-        ]),
-        Seccion('Manzanas trabajadas', icono: Icons.grid_view, [
-          const Text('Toque en el mapa las manzanas trabajadas; quedan en verde.'),
-          const SizedBox(height: 8),
-          if (zona.isEmpty)
-            const Text('Primero elija la zona.')
-          else
-            MapaBase(zonas: zona, manzanas: s.manzanas.where((m) => m.zonaId == _zona).toList(), seleccion: _manzanas, alTocar: _tocarMapa, alto: 340),
-          const SizedBox(height: 6),
-          Text(codigos.isEmpty ? 'Ninguna manzana elegida' : 'Elegidas (${_manzanas.length}): $codigos'),
-          if (_errores['manzanas'] != null) Text(_errores['manzanas']!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-        ]),
-        Seccion('Cobertura del trabajo', icono: Icons.door_front_door, [
-          campo('direccion', 'Dirección o referencia (opcional)'),
-          campo('hogares', 'Cantidad de hogares visitados', numero: true),
-          campo('personas', 'Cantidad de personas contactadas', numero: true),
-          campo('aceptan', 'Personas que aceptaron visita posterior', numero: true),
-          campo('nombres', 'Nombres de quienes aceptaron visita (opcional)', lineas: 2),
-          campo('resultado', 'Breve descripción del resultado espiritual', lineas: 3),
-        ]),
-        Seccion('Casos especiales', icono: Icons.health_and_safety, [
-          Casilla('Persona enferma que requiere visita hospitalaria', _enfermo, (v) => setState(() => _enfermo = v)),
-          Casilla('Persona sorda', _sordo, (v) => setState(() => _sordo = v)),
-          Casilla('Caso que requiere consejería o visitación especial', _consejeria, (v) => setState(() => _consejeria = v)),
-          if (_enfermo || _sordo || _consejeria) campo('caso', 'Describa brevemente el caso', lineas: 2),
-        ]),
-        Seccion('Evangelismo infantil', icono: Icons.child_care, [
-          Casilla('Se realizó evangelismo a niños', _evangelismoNinos, (v) => setState(() => _evangelismoNinos = v)),
-          if (_evangelismoNinos) campo('ninos', 'Cantidad aproximada de niños alcanzados', numero: true),
-        ]),
-        Seccion('Evaluación', icono: Icons.star_half, [
-          DropdownButtonFormField<String>(
-            initialValue: _receptividad,
-            items: [for (var n = 1; n <= 5; n++) DropdownMenuItem(value: '$n', child: Text('$n'))],
-            onChanged: (v) => setState(() { _receptividad = v; _errores.remove('receptividad'); }),
-            decoration: InputDecoration(labelText: 'Receptividad del sector (1 baja, 5 alta)', errorText: _errores['receptividad'], border: const OutlineInputBorder()),
-          ),
-          const SizedBox(height: 14),
-          DropdownButtonFormField<String>(
-            initialValue: _dificultad,
-            items: [for (final d in dificultades.entries) DropdownMenuItem(value: d.key, child: Text(d.value))],
-            onChanged: (v) => setState(() { _dificultad = v; _errores.remove('dificultad'); }),
-            decoration: InputDecoration(labelText: 'Dificultades encontradas', errorText: _errores['dificultad'], border: const OutlineInputBorder()),
-          ),
-          const SizedBox(height: 14),
-          if (_dificultad == 'otra') campo('dificultad_otra', 'Describa la dificultad'),
-          campo('sugerencias', 'Sugerencias (opcional)', lineas: 2),
-        ]),
-        FilledButton.icon(
-          onPressed: _enviando ? null : _guardar,
-          icon: const Icon(Icons.save),
-          label: Text(_enviando ? 'Guardando...' : 'Guardar reporte'),
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
-        ),
-        const SizedBox(height: 24),
-      ]),
+    return ConSeccion(
+      Colores.evangelismo,
+      FormularioPorPasos(
+        titulo: 'Jornada de evangelismo',
+        textoGuardar: 'Guardar reporte',
+        enviando: _enviando,
+        validar: _validar,
+        guardar: _guardar,
+        pasos: [
+          Paso('Manzanas', campos: const {'responsable', 'coordinador', 'fecha', 'zona', 'manzanas'}, () => [
+                Seccion('Datos generales', icono: Icons.badge, [
+                  campo('responsable', 'Nombre del responsable'),
+                  campo('coordinador', 'Nombre del coordinador de zona'),
+                  SelectorFecha(etiqueta: 'Fecha de la jornada', valor: _fecha, error: _errores['fecha'], alCambiar: (f) => setState(() { _fecha = f; _errores.remove('fecha'); })),
+                  SelectorZona(zonas: s.misZonas, valor: _zona, puedeElegir: s.eligeZona, error: _errores['zona'],
+                      alCambiar: (z) => setState(() { _zona = z; _manzanas.clear(); _errores.remove('zona'); })),
+                ]),
+                Seccion('Manzanas trabajadas', icono: Icons.grid_view, detalle: 'Toque en el mapa las manzanas; quedan en verde', [
+                  if (zona.isEmpty)
+                    const Text('Primero elija la zona.')
+                  else
+                    MapaBase(zonas: zona, manzanas: s.manzanas.where((m) => m.zonaId == _zona).toList(), seleccion: _manzanas, alTocar: _tocarMapa, alto: 340),
+                  codigos.isEmpty ? const Aviso('Ninguna manzana elegida todavía', bien: false) : Aviso('Elegidas (${_manzanas.length}): $codigos'),
+                  if (_errores['manzanas'] != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_errores['manzanas']!, style: const TextStyle(color: Colores.peligro))),
+                ]),
+              ]),
+          Paso('Cobertura', campos: const {'hogares', 'personas', 'aceptan', 'resultado'}, () => [
+                Seccion('Cobertura del trabajo', icono: Icons.door_front_door, detalle: 'Toque − y + para contar', [
+                  contador('hogares', 'Hogares visitados'),
+                  contador('personas', 'Personas contactadas'),
+                  contador('aceptan', 'Aceptaron visita posterior'),
+                  campo('nombres', 'Nombres de quienes aceptaron visita (opcional)', lineas: 2),
+                  campo('direccion', 'Dirección o referencia (opcional)'),
+                  campo('resultado', 'Breve descripción del resultado espiritual', lineas: 3),
+                ]),
+              ]),
+          Paso('Casos', campos: const {'caso', 'ninos'}, () => [
+                Seccion('Casos especiales', icono: Icons.health_and_safety, [
+                  SiNo('¿Persona enferma que requiere visita hospitalaria?', _enfermo, (v) => setState(() => _enfermo = v)),
+                  SiNo('¿Persona sorda?', _sordo, (v) => setState(() => _sordo = v)),
+                  SiNo('¿Caso de consejería o visitación especial?', _consejeria, (v) => setState(() => _consejeria = v)),
+                  if (_enfermo || _sordo || _consejeria) campo('caso', 'Describa brevemente el caso', lineas: 2),
+                ]),
+                Seccion('Evangelismo infantil', icono: Icons.child_care, [
+                  SiNo('¿Se realizó evangelismo a niños?', _evangelismoNinos, (v) => setState(() => _evangelismoNinos = v)),
+                  if (_evangelismoNinos) contador('ninos', 'Niños alcanzados (aproximado)'),
+                ]),
+              ]),
+          Paso('Evaluación', campos: const {'receptividad', 'dificultad', 'dificultad_otra'}, () => [
+                Seccion('Evaluación', icono: Icons.star_half, [
+                  const Etiqueta('Receptividad del sector (1 baja, 5 alta)'),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    for (var n = 1; n <= 5; n++)
+                      IconButton(
+                        tooltip: 'Receptividad $n',
+                        iconSize: 40,
+                        onPressed: () => setState(() { _receptividad = '$n'; _errores.remove('receptividad'); }),
+                        icon: Icon(n <= (int.tryParse(_receptividad ?? '') ?? 0) ? Icons.star_rounded : Icons.star_outline_rounded, color: Colores.oro),
+                      ),
+                  ]),
+                  if (_errores['receptividad'] != null) Text(_errores['receptividad']!, style: const TextStyle(color: Colores.peligro)),
+                  const SizedBox(height: 14),
+                  Desplegable('Dificultades encontradas', _dificultad, dificultades, (v) => setState(() { _dificultad = v; _errores.remove('dificultad'); }), error: _errores['dificultad']),
+                  if (_dificultad == 'otra') campo('dificultad_otra', 'Describa la dificultad'),
+                  campo('sugerencias', 'Sugerencias (opcional)', lineas: 2),
+                ]),
+              ]),
+        ],
+      ),
     );
   }
 }

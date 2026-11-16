@@ -4,6 +4,8 @@ import 'package:latlong2/latlong.dart';
 import '../datos/reglas.dart';
 import '../ui/campos.dart';
 import '../ui/mapa_base.dart';
+import '../ui/pasos.dart';
+import '../ui/tema.dart';
 import 'sesion.dart';
 
 class FormularioCulto extends StatefulWidget {
@@ -15,9 +17,9 @@ class FormularioCulto extends StatefulWidget {
 
 class _FormularioCultoState extends State<FormularioCulto> {
   final _direccion = TextEditingController();
-  final _hermanos = TextEditingController();
-  final _amigos = TextEditingController();
-  final _ninos = TextEditingController();
+  final _hermanos = TextEditingController(text: '0');
+  final _amigos = TextEditingController(text: '0');
+  final _ninos = TextEditingController(text: '0');
   final _ofrenda = TextEditingController();
   final _observaciones = TextEditingController();
   late String? _zona = widget.sesion.perfil.zonaId;
@@ -57,11 +59,16 @@ class _FormularioCultoState extends State<FormularioCulto> {
     }
   }
 
-  Future<void> _guardar() async {
+  Map<String, String> _validar([Set<String>? campos]) {
     final e = validarCulto(zonaId: _zona, fecha: _fecha, direccion: _direccion.text, ubicacion: _ubicacion,
         hermanos: _hermanos.text, amigos: _amigos.text, ninos: _ninos.text, ofrenda: _ofrenda.text);
-    setState(() => _errores = e);
-    if (e.isNotEmpty) {
+    // Solo se marcan los errores del paso que se está revisando.
+    setState(() => _errores = campos == null ? e : {for (final k in e.keys) if (campos.contains(k)) k: e[k]!});
+    return e;
+  }
+
+  Future<void> _guardar() async {
+    if (_validar().isNotEmpty) {
       avisar(context, 'Revise los campos marcados', error: true);
       return;
     }
@@ -83,52 +90,49 @@ class _FormularioCultoState extends State<FormularioCulto> {
     if (mounted) setState(() => _enviando = false);
   }
 
+  int get _total => [_hermanos, _amigos, _ninos].fold(0, (s, c) => s + (int.tryParse(c.text.trim()) ?? 0));
+
   @override
   Widget build(BuildContext context) {
     final s = widget.sesion;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Culto en casa')),
-      body: ListView(padding: const EdgeInsets.all(12), children: [
-        Seccion('Casa del culto', icono: Icons.home, [
-          SelectorFecha(etiqueta: 'Fecha del culto', valor: _fecha, error: _errores['fecha'], alCambiar: (f) => setState(() { _fecha = f; _errores.remove('fecha'); })),
-          SelectorZona(zonas: s.misZonas, valor: _zona, puedeElegir: s.eligeZona, error: _errores['zona'], alCambiar: (z) => setState(() { _zona = z; _errores.remove('zona'); })),
-          Campo('Dirección de la casa', _direccion, error: _errores['direccion'], ayuda: 'Ej: Calle 18B # 19-30', alCambiar: () => _quitar('direccion')),
-          FilledButton.icon(
-            onPressed: _gps ? null : _usarGps,
-            icon: const Icon(Icons.my_location),
-            label: Text(_gps ? 'Buscando ubicación...' : 'Usar mi ubicación'),
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-          ),
-          const SizedBox(height: 8),
-          const Text('Estando en la casa, toque el botón. También puede tocar el mapa para mover el punto.'),
-          const SizedBox(height: 8),
-          MapaBase(zonas: s.misZonas, marcador: _ubicacion, alTocar: (p) => _ubicar(p, null)),
-          const SizedBox(height: 6),
-          Text(_ubicacion == null
-              ? 'Sin ubicación todavía'
-              : 'Ubicación: ${_ubicacion!.latitude.toStringAsFixed(6)}, ${_ubicacion!.longitude.toStringAsFixed(6)}${_precision == null ? '' : ' (±$_precision m)'}'),
-          if (_errores['ubicacion'] != null) Text(_errores['ubicacion']!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          if (_aviso != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_aviso!, style: const TextStyle(color: Colors.orange))),
-        ]),
-        Seccion('Asistencia y ofrenda', icono: Icons.groups, [
-          Campo('Hermanos asistentes', _hermanos, numero: true, error: _errores['hermanos'], alCambiar: () => _quitar('hermanos')),
-          Campo('Amigos asistentes', _amigos, numero: true, error: _errores['amigos'], alCambiar: () => _quitar('amigos')),
-          Campo('Niños', _ninos, numero: true, error: _errores['ninos'], alCambiar: () => _quitar('ninos')),
-          Campo('Ofrenda (pesos)', _ofrenda, numero: true, ayuda: 'Ej: 50000', error: _errores['ofrenda'], alCambiar: () => _quitar('ofrenda')),
-        ]),
-        Seccion('Enfermos y observaciones', icono: Icons.healing, [
-          Casilla('Hubo personas enfermas', _enfermos, (v) => setState(() => _enfermos = v)),
-          if (_enfermos) Casilla('Se oró por los enfermos', _seOro, (v) => setState(() => _seOro = v)),
-          Campo('Observaciones (opcional)', _observaciones, lineas: 3),
-        ]),
-        FilledButton.icon(
-          onPressed: _enviando ? null : _guardar,
-          icon: const Icon(Icons.save),
-          label: Text(_enviando ? 'Guardando...' : 'Guardar culto'),
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
-        ),
-        const SizedBox(height: 24),
-      ]),
+    return ConSeccion(
+      Colores.cultos,
+      FormularioPorPasos(
+        titulo: 'Culto en casa',
+        textoGuardar: 'Guardar culto',
+        enviando: _enviando,
+        validar: _validar,
+        guardar: _guardar,
+        pasos: [
+          Paso('La casa', campos: const {'fecha', 'zona', 'direccion', 'ubicacion'}, () => [
+                Seccion('¿Dónde fue el culto?', icono: Icons.home, [
+                  SelectorFecha(etiqueta: 'Fecha del culto', valor: _fecha, error: _errores['fecha'], alCambiar: (f) => setState(() { _fecha = f; _errores.remove('fecha'); })),
+                  SelectorZona(zonas: s.misZonas, valor: _zona, puedeElegir: s.eligeZona, error: _errores['zona'], alCambiar: (z) => setState(() { _zona = z; _errores.remove('zona'); })),
+                  Campo('Dirección de la casa', _direccion, icono: Icons.place, error: _errores['direccion'], ayuda: 'Ej: Calle 18B # 19-30', alCambiar: () => _quitar('direccion')),
+                  BotonUbicacion(buscando: _gps, ubicacion: _ubicacion, precision: _precision, alTocar: _usarGps, error: _errores['ubicacion']),
+                  MapaBase(zonas: s.misZonas, marcador: _ubicacion, alTocar: (p) => _ubicar(p, null), alto: 260),
+                  if (_aviso != null) Aviso(_aviso!, bien: false),
+                ]),
+              ]),
+          Paso('Asistencia', campos: const {'hermanos', 'amigos', 'ninos', 'ofrenda'}, () => [
+                if (_ubicacion != null) Padding(padding: const EdgeInsets.only(bottom: 10), child: Aviso('Casa ubicada · ${_direccion.text.trim()}')),
+                Seccion('Asistencia y ofrenda', icono: Icons.groups, detalle: 'Toque − y + para contar · Total: $_total', [
+                  Contador('Hermanos', _hermanos, error: _errores['hermanos'], alCambiar: () { _quitar('hermanos'); setState(() {}); }),
+                  Contador('Amigos', _amigos, error: _errores['amigos'], alCambiar: () { _quitar('amigos'); setState(() {}); }),
+                  Contador('Niños', _ninos, error: _errores['ninos'], alCambiar: () { _quitar('ninos'); setState(() {}); }),
+                  Campo('Ofrenda (pesos)', _ofrenda, numero: true, icono: Icons.payments, ayuda: 'Ej: 50000', error: _errores['ofrenda'], alCambiar: () => _quitar('ofrenda')),
+                ]),
+              ]),
+          Paso('Enfermos', () => [
+                Seccion('Enfermos y observaciones', icono: Icons.healing, [
+                  SiNo('¿Hubo personas enfermas?', _enfermos, (v) => setState(() { _enfermos = v; if (!v) _seOro = false; })),
+                  if (_enfermos) SiNo('¿Se oró por ellas?', _seOro, (v) => setState(() => _seOro = v)),
+                  Campo('Observaciones (opcional)', _observaciones, lineas: 3),
+                ]),
+                Resumen([('Personas', '$_total'), ('Ofrenda', formatoPesos(pesos(_ofrenda.text) ?? 0)), ('Zona', s.nombreZona(_zona))]),
+              ]),
+        ],
+      ),
     );
   }
 }

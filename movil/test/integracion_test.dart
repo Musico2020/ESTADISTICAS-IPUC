@@ -16,7 +16,7 @@ void main() {
 
   Repositorio nuevo() => Repositorio(SupabaseClient(url, clave, authOptions: const AuthClientOptions(authFlowType: AuthFlowType.implicit)));
 
-  test('un líder entra con usuario, guarda culto, VIS y jornada en su zona', () async {
+  test('un líder entra con usuario, guarda culto, hogar VIS y jornada en su zona', () async {
     final lider = nuevo();
     await lider.ingresar(env['IPUC_LIDER']!, env['IPUC_LIDER_CLAVE']!);
     final perfil = (await lider.perfil())!;
@@ -31,15 +31,24 @@ void main() {
     });
     expect(idCulto, isNotEmpty);
 
-    final idNino = await lider.guardarPersona({
-      'tipo': 'nino_vis', 'zona_id': perfil.zonaId, 'nombre': '$marca niño', 'edad': 7, 'acudiente': 'Madre',
-      'autorizacion_acudiente': true, 'estado_seguimiento': 'nuevo',
-    });
-    expect(idNino, isNotEmpty);
+    final idHogar = await lider.guardarHogar({
+      'zona_id': perfil.zonaId, 'familia': '$marca familia', 'direccion': 'Calle 1', 'autorizacion_menores': true,
+    }, [
+      {'nombre': '$marca madre', 'edad': 34, 'parentesco': 'Madre'},
+      {'nombre': '$marca niño', 'edad': 7, 'parentesco': 'Hijo', 'enfermo': true},
+    ]);
+    expect(idHogar, isNotEmpty);
+    final hogares = await lider.hogares(soloConUbicacion: false);
+    expect(hogares.where((h) => h['id'] == idHogar).single['personas'], hasLength(2));
 
-    // Sin autorización del acudiente la base de datos la rechaza aunque la app no validara.
-    await expectLater(lider.guardarPersona({'tipo': 'nino_vis', 'zona_id': perfil.zonaId, 'nombre': '$marca sin permiso', 'edad': 7, 'acudiente': 'Madre'}),
-        throwsA(isA<PostgrestException>()));
+    // Sin autorización la base de datos rechaza al menor y no deja el hogar a medias, aunque la app no validara.
+    await expectLater(
+      lider.guardarHogar({'zona_id': perfil.zonaId, 'familia': '$marca sin permiso', 'direccion': 'Calle 1'}, [
+        {'nombre': '$marca niño', 'edad': 7, 'parentesco': 'Hijo'},
+      ]),
+      throwsA(isA<PostgrestException>()),
+    );
+    expect((await lider.hogares(soloConUbicacion: false)).where((h) => h['familia'] == '$marca sin permiso'), isEmpty);
 
     final idReporte = await lider.guardarReporte({
       'zona_id': perfil.zonaId, 'responsable_nombre': marca, 'coordinador_nombre': 'C', 'fecha_jornada': DateTime.now().toIso8601String().substring(0, 10),
