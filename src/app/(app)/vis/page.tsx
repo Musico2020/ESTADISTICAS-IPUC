@@ -1,5 +1,5 @@
-import ListaPersonas from "@/components/personas/ListaPersonas";
+import ListaHogares from "@/components/hogares/ListaHogares";
 
 export default function PaginaVis() {
-  return <ListaPersonas tipo="nino_vis" />;
+  return <ListaHogares />;
 }

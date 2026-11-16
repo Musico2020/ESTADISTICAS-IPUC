@@ -254,52 +254,92 @@ describe("cultos en casas", () => {
   });
 });
 
-describe("VIS, amigos y visitas", () => {
-  const ninoFicha = (zona_id: string, c: Record<string, unknown> = {}) => ({ tipo: "nino_vis", zona_id, nombre: "NINO-SECRETO", edad: 8,
-    acudiente: "Madre", autorizacion_acudiente: true, telefono: "3001234567", calamidad: "CALAMIDAD-SECRETA", ...c });
-  let lider: SupabaseClient, ninoZ1: string;
+describe("VIS: hogares con su familia, amigos y visitas", () => {
+  const hogar = (zona_id: string, c: Record<string, unknown> = {}) => ({
+    zona_id, familia: "FAMILIA-SECRETA", direccion: "Calle 1", telefono: "3001234567", calamidad: "CALAMIDAD-SECRETA", autorizacion_menores: true, ...c,
+  });
+  const adulto = { nombre: "MADRE-SECRETA", edad: 34, parentesco: "Madre" };
+  const nino = { nombre: "NINO-SECRETO", edad: 8, parentesco: "Hijo" };
+  let lider: SupabaseClient, hogarZ1: string;
   beforeAll(async () => {
     lider = (await usuario("lider_zona", z1)).c;
-    const r = await lider.from("personas").insert(ninoFicha(z1)).select("id").single();
+    const r = await lider.rpc("guardar_hogar", { p_hogar: hogar(z1), p_integrantes: [adulto, nino] });
     if (r.error) throw r.error;
-    ninoZ1 = r.data.id;
+    hogarZ1 = r.data;
   });
-  afterAll(async () => { await srv.from("personas").delete().in("nombre", ["NINO-SECRETO", "AMIGO-SECRETO"]); });
-  it("sin autorización del acudiente la base de datos rechaza la ficha", async () => {
-    expect((await lider.from("personas").insert(ninoFicha(z1, { autorizacion_acudiente: false }))).error).not.toBeNull();
-    expect((await lider.from("personas").insert(ninoFicha(z1, { edad: 19 }))).error).not.toBeNull();
-    expect((await lider.from("personas").insert(ninoFicha(z1, { acudiente: null }))).error).not.toBeNull();
+  afterAll(async () => {
+    await srv.from("hogares").delete().like("familia", "FAMILIA-%");
+    await srv.from("personas").delete().eq("nombre", "AMIGO-SECRETO");
   });
-  it("otra zona no ve la ficha del niño ni sus visitas", async () => {
-    await lider.from("visitas").insert({ persona_id: ninoZ1, zona_id: z1, fecha: "2099-03-01", notas: "VISITA-SECRETA" });
+
+  it("guarda el hogar con sus integrantes en la zona del hogar", async () => {
+    const { data } = await srv.from("personas").select("tipo,zona_id,nombre,hogar_id").eq("hogar_id", hogarZ1).order("nombre");
+    expect(data).toEqual([
+      { tipo: "integrante", zona_id: z1, nombre: "MADRE-SECRETA", hogar_id: hogarZ1 },
+      { tipo: "integrante", zona_id: z1, nombre: "NINO-SECRETO", hogar_id: hogarZ1 },
+    ]);
+  });
+  it("sin autorización la base de datos rechaza menores, y no deja el hogar a medias", async () => {
+    const r = await lider.rpc("guardar_hogar", { p_hogar: hogar(z1, { familia: "FAMILIA-SIN-PERMISO", autorizacion_menores: false }), p_integrantes: [adulto, nino] });
+    expect(r.error).not.toBeNull();
+    expect((await srv.from("hogares").select("id").eq("familia", "FAMILIA-SIN-PERMISO")).data).toEqual([]);
+    // Tampoco se cuela un menor insertándolo directo ni quitando la autorización después.
+    const directo = await lider.from("personas").insert({ tipo: "integrante", hogar_id: hogarZ1, zona_id: z1, nombre: "X", edad: 5 });
+    expect(directo.error).toBeNull();
+    await srv.from("hogares").update({ autorizacion_menores: false }).eq("id", hogarZ1).then((x) => expect(x.error).not.toBeNull());
+    await srv.from("personas").delete().eq("hogar_id", hogarZ1).eq("nombre", "X");
+    const h2 = await srv.from("hogares").insert({ ...hogar(z1, { familia: "FAMILIA-SIN-PERMISO-2", autorizacion_menores: false }), creado_por: (await lider.auth.getUser()).data.user!.id }).select("id").single();
+    const menor = await lider.from("personas").insert({ tipo: "integrante", hogar_id: h2.data!.id, zona_id: z1, nombre: "Y", edad: 5 });
+    expect(menor.error).not.toBeNull();
+  });
+  it("un integrante no puede quedar en otra zona que su hogar", async () => {
+    const r = await lider.from("personas").insert({ tipo: "integrante", hogar_id: hogarZ1, zona_id: zVecina, nombre: "MOVIDO", edad: 40 }).select("zona_id").single();
+    expect(r.data?.zona_id).toBe(z1);
+    await srv.from("personas").delete().eq("nombre", "MOVIDO");
+  });
+  it("otra zona no ve el hogar, sus integrantes ni sus visitas", async () => {
+    await lider.from("visitas").insert({ hogar_id: hogarZ1, zona_id: z1, fecha: "2099-03-01", notas: "VISITA-SECRETA" });
     const { c } = await usuario("lider_zona", zVecina);
-    expect((await c.from("personas").select("id").eq("id", ninoZ1)).data).toEqual([]);
-    expect((await c.from("visitas").select("id").eq("persona_id", ninoZ1)).data).toEqual([]);
+    expect((await c.from("hogares").select("id").eq("id", hogarZ1)).data).toEqual([]);
+    expect((await c.from("personas").select("id").eq("hogar_id", hogarZ1)).data).toEqual([]);
+    expect((await c.from("visitas").select("id").eq("hogar_id", hogarZ1)).data).toEqual([]);
   });
   it("no se puede colar una visita en otra zona cambiando su zona", async () => {
     const { c } = await usuario("lider_zona", zVecina);
-    const r = await c.from("visitas").insert({ persona_id: ninoZ1, zona_id: zVecina, fecha: "2099-03-02" });
-    expect(r.error).not.toBeNull();
+    expect((await c.from("visitas").insert({ hogar_id: hogarZ1, zona_id: zVecina, fecha: "2099-03-02" })).error).not.toBeNull();
   });
-  it("el coordinador de sector ve la ficha; el de otro sector no", async () => {
+  it("el coordinador de sector ve el hogar; el de otro sector no", async () => {
     const a = (await usuario("coordinador_sector", null, s1)).c;
-    expect((await a.from("personas").select("calamidad").eq("id", ninoZ1)).data).toEqual([{ calamidad: "CALAMIDAD-SECRETA" }]);
+    expect((await a.from("hogares").select("calamidad").eq("id", hogarZ1)).data).toEqual([{ calamidad: "CALAMIDAD-SECRETA" }]);
     const b = (await usuario("coordinador_sector", null, s2)).c;
-    expect((await b.from("personas").select("id").eq("id", ninoZ1)).data).toEqual([]);
+    expect((await b.from("hogares").select("id").eq("id", hogarZ1)).data).toEqual([]);
   });
-  it("otro líder de la zona registra visitas pero no corrige la ficha ajena", async () => {
+  it("otro líder de la zona registra visitas pero no corrige ni vacía el hogar ajeno", async () => {
     const { c } = await usuario("lider_zona", z1);
-    expect((await c.from("visitas").insert({ persona_id: ninoZ1, zona_id: z1, fecha: "2099-03-03" })).error).toBeNull();
-    expect((await c.from("personas").update({ nombre: "CAMBIADO" }).eq("id", ninoZ1).select("id")).data).toEqual([]);
+    expect((await c.from("visitas").insert({ hogar_id: hogarZ1, zona_id: z1, fecha: "2099-03-03" })).error).toBeNull();
+    expect((await c.rpc("guardar_hogar", { p_hogar: hogar(z1, { id: hogarZ1, familia: "FAMILIA-CAMBIADA" }), p_integrantes: [] })).error).not.toBeNull();
+    await c.from("personas").delete().eq("hogar_id", hogarZ1);
+    expect((await srv.from("personas").select("id").eq("hogar_id", hogarZ1)).data).toHaveLength(2);
   });
-  it("solo el administrador elimina fichas", async () => {
-    await lider.from("personas").delete().eq("id", ninoZ1);
-    expect((await srv.from("personas").select("id").eq("id", ninoZ1)).data).toHaveLength(1);
+  it("quien registró el hogar lo corrige y quita integrantes", async () => {
+    const { data: miembros } = await lider.from("personas").select("id,nombre").eq("hogar_id", hogarZ1);
+    const madre = miembros!.find((m) => m.nombre === "MADRE-SECRETA")!;
+    const r = await lider.rpc("guardar_hogar", { p_hogar: hogar(z1, { id: hogarZ1, familia: "FAMILIA-SECRETA" }), p_integrantes: [{ ...adulto, id: madre.id, edad: 35 }] });
+    expect(r.error).toBeNull();
+    expect((await srv.from("personas").select("nombre,edad").eq("hogar_id", hogarZ1)).data).toEqual([{ nombre: "MADRE-SECRETA", edad: 35 }]);
   });
-  it("las funciones agregadas no exponen nombres de personas", async () => {
-    const { c } = await usuario("lider_zona", zVecina);
-    const r = await c.rpc("estadisticas", { p_desde: "2099-01-01", p_hasta: "2099-12-31" });
-    expect(JSON.stringify(r.data)).not.toMatch(/NINO-SECRETO|CALAMIDAD-SECRETA/);
+  it("solo el administrador elimina hogares", async () => {
+    await lider.from("hogares").delete().eq("id", hogarZ1);
+    expect((await srv.from("hogares").select("id").eq("id", hogarZ1)).data).toHaveLength(1);
+  });
+  it("las fichas de amigo siguen funcionando y nino_vis ya no existe", async () => {
+    expect((await lider.from("personas").insert({ tipo: "amigo", zona_id: z1, nombre: "AMIGO-SECRETO" })).error).toBeNull();
+    expect((await lider.from("personas").insert({ tipo: "nino_vis", zona_id: z1, nombre: "AMIGO-SECRETO" })).error).not.toBeNull();
+  });
+  it("las funciones agregadas cuentan hogares sin exponer nombres", async () => {
+    const r = await lider.rpc("resumen_actividad", { p_desde: "2000-01-01", p_hasta: "2099-12-31" });
+    expect(r.data.personas.vis).toBeGreaterThanOrEqual(1);
+    expect(JSON.stringify(r.data)).not.toMatch(/NINO-SECRETO|MADRE-SECRETA|CALAMIDAD-SECRETA|FAMILIA-SECRETA/);
   });
 });
 

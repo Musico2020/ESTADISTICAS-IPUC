@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   BarChart,
   Bar,
+  Legend,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
@@ -21,7 +22,6 @@ import {
   AlertTriangle,
   FileSpreadsheet,
   TrendingUp,
-  Baby,
   HeartHandshake,
   Coins,
   HandHeart,
@@ -63,11 +63,11 @@ export default function PaginaEstadisticas() {
       {/* Encabezado */}
       <div>
         <h1>
-          <BarChart3 size={28} style={{ color: "var(--marca)" }} />
-          <span>Tablero de Métricas y Estadísticas</span>
+          <BarChart3 size={28} />
+          <span>Estadísticas</span>
         </h1>
         <p className="tenue">
-          Consolidado general de impacto, cobertura territorial y resultados espirituales
+          Cobertura del barrio, cultos en casas, hogares VIS y amigos en un solo lugar
         </p>
       </div>
 
@@ -284,6 +284,33 @@ function Tabla({
   );
 }
 
+// Una barra por mes con cada tipo de registro apilado en su color de sección.
+function GraficaApilada({ titulo, icono, datos, series }: {
+  titulo: string; icono?: ReactNode; datos: object[]; series: { clave: string; nombre: string; color: string }[];
+}) {
+  return (
+    <section className="tarjeta">
+      <h2 style={{ marginBottom: 14 }}>{icono}<span>{titulo}</span></h2>
+      <div style={{ width: "100%", height: 280 }}>
+        <ResponsiveContainer>
+          <BarChart data={datos} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
+            <CartesianGrid vertical={false} stroke="var(--linea)" strokeDasharray="3 3" />
+            <XAxis dataKey="mes" tick={{ fill: "var(--tenue)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--linea)" }} />
+            <YAxis allowDecimals={false} tick={{ fill: "var(--tenue)", fontSize: 12 }} tickLine={false} axisLine={false} />
+            <Tooltip cursor={{ fill: "var(--linea)", fillOpacity: 0.3 }}
+              contentStyle={{ background: "var(--superficie-pura)", border: "1px solid var(--linea)", borderRadius: 10, color: "var(--texto)", fontSize: 13 }} />
+            <Legend iconType="circle" wrapperStyle={{ fontSize: 13 }} />
+            {series.map((x, i) => (
+              <Bar key={x.clave} dataKey={x.clave} name={x.nombre} stackId="a" fill={x.color} maxBarSize={48} isAnimationActive={false}
+                radius={i === series.length - 1 ? [6, 6, 0, 0] : undefined} />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  );
+}
+
 // Cultos en casas, VIS y amigos del período. La base de datos solo suma lo que el usuario puede ver.
 function ResumenDeActividad({ periodo, zona }: { periodo: Periodo; zona: string }) {
   const [r, setR] = useState<ResumenActividad | null>(null);
@@ -297,20 +324,25 @@ function ResumenDeActividad({ periodo, zona }: { periodo: Periodo; zona: string 
   const vacio = r.cultos.total + r.personas.vis + r.personas.amigos + r.visitas === 0;
   return (
     <section className="pila" aria-labelledby="titulo-actividad">
-      <h2 id="titulo-actividad" style={{ marginTop: 12 }}><Home size={22} style={{ color: "var(--marca)" }} /><span>Cultos, VIS y amigos</span></h2>
+      <h2 id="titulo-actividad" style={{ marginTop: 12 }}><Home size={22} /><span>Cultos, hogares VIS y amigos</span></h2>
       {vacio ? <p className="tenue">No hay cultos, fichas ni visitas en este período.</p> : (
         <>
           <div className="rejilla-kpi">
             <Kpi valor={r.cultos.total} texto="Cultos en casas" subtitulo={`${r.cultos.miercoles} miércoles · ${r.cultos.viernes} viernes`} icono={<Home size={18} />} />
             <Kpi valor={r.cultos.hermanos} texto="Hermanos en cultos" subtitulo={`${r.cultos.amigos} amigos · ${r.cultos.ninos} niños`} icono={<Users size={18} />} />
             <Kpi valor={formatoPesos(r.cultos.ofrenda)} texto="Ofrendas" subtitulo={`${r.cultos.con_enfermos} cultos con enfermos`} icono={<Coins size={18} />} />
-            <Kpi valor={r.personas.vis} texto="Niños de VIS" subtitulo={`${r.visitas} ${r.visitas === 1 ? "visita realizada" : "visitas realizadas"}`} icono={<Baby size={18} />} />
+            <Kpi valor={r.personas.vis} texto="Hogares VIS" subtitulo={`${r.personas.integrantes ?? 0} personas · ${r.personas.ninos ?? 0} niños · ${r.visitas} visitas`} icono={<Users size={18} />} />
             <Kpi valor={r.personas.amigos} texto="Amigos registrados" subtitulo={`${r.personas.congregados} ya se congregan`} icono={<HeartHandshake size={18} />} />
             <Kpi valor={r.personas.entregaron} texto="Se entregaron a Cristo" subtitulo={`${r.personas.piden_oracion} ${r.personas.piden_oracion === 1 ? "pide" : "piden"} oración · ${r.personas.enfermos} ${r.personas.enfermos === 1 ? "enfermo" : "enfermos"}`} icono={<HandHeart size={18} />} />
           </div>
-          <Grafica titulo="Cultos por mes" icono={<TrendingUp size={18} />} datos={r.por_mes} x="mes" y="cultos" etiqueta="Cultos" />
+          <GraficaApilada titulo="Actividad por mes" icono={<TrendingUp size={18} />} datos={r.por_mes} series={[
+            { clave: "cultos", nombre: "Cultos", color: "var(--c-cultos)" },
+            { clave: "hogares", nombre: "Hogares VIS", color: "var(--c-vis)" },
+            { clave: "personas", nombre: "Amigos", color: "var(--c-amigos)" },
+            { clave: "visitas", nombre: "Visitas", color: "var(--c-informes)" },
+          ]} />
           <Tabla titulo="Cultos por zona" icono={<Layers size={18} />} encabezados={ENCABEZADOS_CULTOS_ZONA} filas={filasCultosPorZona(r)} />
-          <Tabla titulo="VIS y amigos por zona" icono={<Layers size={18} />} encabezados={ENCABEZADOS_PERSONAS_ZONA} filas={filasPersonasPorZona(r)} />
+          <Tabla titulo="Hogares VIS y amigos por zona" icono={<Layers size={18} />} encabezados={ENCABEZADOS_PERSONAS_ZONA} filas={filasPersonasPorZona(r)} />
         </>
       )}
     </section>

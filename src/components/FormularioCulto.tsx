@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { Crosshair, Home, Users, Baby, Coins, HeartPulse, Layers, Save, AlertCircle } from "lucide-react";
+import { Crosshair, Users, Baby, Coins, HeartPulse, Layers, Save, AlertCircle, CheckCircle2 } from "lucide-react";
 import MapaPuntosDinamico from "@/components/MapaPuntosDinamico";
 import { usePerfil } from "@/components/ContextoPerfil";
+import { Campo, Contador, Paso, SiNo } from "@/components/ui/Controles";
 import { aFilaCulto, cultoVacio, validarCulto, type DatosCulto, type ErroresCulto } from "@/lib/culto/validar";
 import { zonaDePunto } from "@/lib/mapa/zonaDePunto";
 import { eligeZona, zonasPermitidas } from "@/lib/roles";
@@ -10,6 +11,8 @@ import { crearClienteNavegador } from "@/lib/supabase/cliente";
 import type { Sector, Zona } from "@/lib/tipos";
 
 type Props = { inicial?: DatosCulto; cultoId?: string; alGuardar: (id: string) => void };
+type Conteo = "hermanos" | "amigos" | "ninos";
+const entero = (t: string) => (/^\d+$/.test(t) ? +t : 0);
 
 export default function FormularioCulto({ inicial, cultoId, alGuardar }: Props) {
   const perfil = usePerfil();
@@ -73,90 +76,104 @@ export default function FormularioCulto({ inicial, cultoId, alGuardar }: Props) 
     alGuardar(r.data.id);
   }
 
-  const numero = (c: "hermanos" | "amigos" | "ninos", etiqueta: string, icono: ReactNode) => (
-    <Campo etiqueta={etiqueta} error={errores[c]} icono={icono}>
-      <input name={c} type="number" inputMode="numeric" min={0} value={d[c]} onChange={(e) => poner(c, e.target.value)} />
-    </Campo>
-  );
-
-  return (
-    <form className="pila" onSubmit={enviar} noValidate>
-      <section className="tarjeta pila">
-        <h2><Home size={22} style={{ color: "var(--marca)" }} /><span>Casa del culto</span></h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
-          <Campo etiqueta="Fecha del culto" error={errores.fecha}>
-            <input name="fecha" type="date" value={d.fecha} onChange={(e) => poner("fecha", e.target.value)} />
-          </Campo>
-          {puedeElegir ? (
-            <Campo etiqueta="Zona" error={errores.zona_id} icono={<Layers size={16} />}>
-              <select name="zona_id" value={d.zona_id} onChange={(e) => poner("zona_id", e.target.value)}>
-                <option value="">Seleccione una zona...</option>
-                {permitidas.map((z) => <option key={z.id} value={z.id}>{z.nombre}</option>)}
-              </select>
-            </Campo>
-          ) : (
-            <div className="campo"><span><Layers size={16} /> Zona</span><b>{zonas.find((z) => z.id === d.zona_id)?.nombre ?? "..."}</b></div>
-          )}
-        </div>
-        <Campo etiqueta="Dirección de la casa" error={errores.direccion}>
-          <input name="direccion" placeholder="Ej: Calle 18B # 19-30, casa de la hermana Rosa" value={d.direccion} onChange={(e) => poner("direccion", e.target.value)} />
-        </Campo>
-        <div className="pila" style={{ gap: 8 }}>
-          <button type="button" className="boton" onClick={usarGps} disabled={buscandoGps}>
-            <Crosshair size={18} /><span>{buscandoGps ? "Buscando ubicación..." : "Usar mi ubicación"}</span>
-          </button>
-          <p className="tenue" style={{ margin: 0, fontSize: "0.85rem" }}>
-            Estando en la casa, toque el botón. También puede tocar el mapa para mover el punto.
-          </p>
-          <MapaPuntosDinamico zonas={zonas} sectores={sectores} marcador={marcador} alElegir={(lat, lon) => ubicar(lat, lon, null)} />
-          <p className="tenue" aria-live="polite" style={{ margin: 0, fontSize: "0.85rem" }}>
-            {marcador ? `Ubicación: ${marcador.lat.toFixed(6)}, ${marcador.lon.toFixed(6)}${d.precision_m ? ` (precisión ${d.precision_m} m)` : ""}` : "Sin ubicación todavía"}
-          </p>
-          {errores.ubicacion && <span className="error" role="alert">{errores.ubicacion}</span>}
-        </div>
-      </section>
-
-      <section className="tarjeta pila">
-        <h2><Users size={22} style={{ color: "var(--marca)" }} /><span>Asistencia y ofrenda</span></h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 16 }}>
-          {numero("hermanos", "Hermanos asistentes", <Users size={16} />)}
-          {numero("amigos", "Amigos asistentes", <Users size={16} />)}
-          {numero("ninos", "Niños", <Baby size={16} />)}
-          <Campo etiqueta="Ofrenda (pesos)" error={errores.ofrenda} icono={<Coins size={16} />}>
-            <input name="ofrenda" inputMode="numeric" placeholder="Ej: 50.000" value={d.ofrenda} onChange={(e) => poner("ofrenda", e.target.value)} />
-          </Campo>
-        </div>
-      </section>
-
-      <section className="tarjeta pila">
-        <h2><HeartPulse size={22} style={{ color: "var(--marca)" }} /><span>Enfermos y observaciones</span></h2>
-        <label className={`casilla ${d.hubo_enfermos ? "casilla-activa" : ""}`}>
-          <input type="checkbox" checked={d.hubo_enfermos} onChange={(e) => poner("hubo_enfermos", e.target.checked)} />
-          <span>Hubo personas enfermas</span>
-        </label>
-        {d.hubo_enfermos && (
-          <label className={`casilla ${d.se_oro_enfermos ? "casilla-activa" : ""}`}>
-            <input type="checkbox" checked={d.se_oro_enfermos} onChange={(e) => poner("se_oro_enfermos", e.target.checked)} />
-            <span>Se oró por los enfermos</span>
-          </label>
-        )}
-        <Campo etiqueta="Observaciones (opcional)">
-          <textarea name="observaciones" value={d.observaciones} onChange={(e) => poner("observaciones", e.target.value)} />
-        </Campo>
-      </section>
-
-      {aviso && <p className="aviso" role="alert"><AlertCircle size={18} /><span>{aviso}</span></p>}
-      <button className="boton" disabled={enviando}><Save size={18} /><span>{enviando ? "Guardando..." : "Guardar culto"}</span></button>
-    </form>
-  );
-}
-
-function Campo({ etiqueta, error, icono, children }: { etiqueta: string; error?: string; icono?: ReactNode; children: ReactNode }) {
-  return (
-    <label className="campo">
+  const numero = (c: Conteo, etiqueta: string, icono: ReactNode) => (
+    <div className="campo">
       <span>{icono} {etiqueta}</span>
-      {children}
-      {error && <span className="error" role="alert">{error}</span>}
-    </label>
+      <Contador nombre={c} etiqueta={etiqueta} valor={d[c]} alCambiar={(v) => poner(c, v)} />
+      {errores[c] && <span className="error" role="alert">{errores[c]}</span>}
+    </div>
+  );
+  const total = entero(d.hermanos) + entero(d.amigos) + entero(d.ninos);
+  const nombreZona = zonas.find((z) => z.id === d.zona_id)?.nombre;
+  const hayErrores = Object.values(errores).some(Boolean);
+
+  return (
+    <form className="formulario-con-resumen" onSubmit={enviar} noValidate>
+      <div className="pila">
+        <section className="tarjeta pila">
+          <Paso numero={1} titulo="La casa" detalle="Dónde se hizo el culto" />
+          <div className="rejilla-campos">
+            <Campo etiqueta="Fecha del culto" error={errores.fecha}>
+              <input name="fecha" type="date" value={d.fecha} onChange={(e) => poner("fecha", e.target.value)} />
+            </Campo>
+            {puedeElegir ? (
+              <Campo etiqueta="Zona" error={errores.zona_id} icono={<Layers size={16} />}>
+                <select name="zona_id" value={d.zona_id} onChange={(e) => poner("zona_id", e.target.value)}>
+                  <option value="">Seleccione una zona...</option>
+                  {permitidas.map((z) => <option key={z.id} value={z.id}>{z.nombre}</option>)}
+                </select>
+              </Campo>
+            ) : (
+              <div className="campo"><span><Layers size={16} /> Zona</span><b>{nombreZona ?? "..."}</b></div>
+            )}
+          </div>
+          <Campo etiqueta="Dirección de la casa" error={errores.direccion}>
+            <input name="direccion" placeholder="Ej: Calle 18B # 19-30, casa de la hermana Rosa" value={d.direccion} onChange={(e) => poner("direccion", e.target.value)} />
+          </Campo>
+          <div className="ubicacion">
+            <MapaPuntosDinamico zonas={zonas} sectores={sectores} marcador={marcador} alElegir={(lat, lon) => ubicar(lat, lon, null)} />
+            <div className="pila" style={{ gap: 10 }}>
+              <button type="button" className="boton" onClick={usarGps} disabled={buscandoGps}>
+                <Crosshair size={18} /><span>{buscandoGps ? "Buscando ubicación..." : "Usar mi ubicación"}</span>
+              </button>
+              <p aria-live="polite" className={marcador ? "exito-box" : "tenue"} style={{ fontSize: "0.85rem" }}>
+                {marcador
+                  ? <><CheckCircle2 size={16} /><span>Ubicación: {marcador.lat.toFixed(6)}, {marcador.lon.toFixed(6)}{d.precision_m ? ` (precisión ${d.precision_m} m)` : ""}</span></>
+                  : "Sin ubicación todavía"}
+              </p>
+              <p className="tenue" style={{ fontSize: "0.82rem" }}>Estando en la casa, toque el botón. También puede tocar el mapa para mover el punto.</p>
+              {errores.ubicacion && <span className="error" role="alert">{errores.ubicacion}</span>}
+            </div>
+          </div>
+        </section>
+
+        <section className="tarjeta pila">
+          <Paso numero={2} titulo="Asistencia y ofrenda" detalle="Toque − y + para contar" />
+          <div className="rejilla-campos rejilla-4">
+            {numero("hermanos", "Hermanos", <Users size={16} />)}
+            {numero("amigos", "Amigos", <Users size={16} />)}
+            {numero("ninos", "Niños", <Baby size={16} />)}
+            <Campo etiqueta="Ofrenda (pesos)" error={errores.ofrenda} icono={<Coins size={16} />}>
+              <input name="ofrenda" inputMode="numeric" placeholder="Ej: 50.000" value={d.ofrenda} onChange={(e) => poner("ofrenda", e.target.value)} />
+            </Campo>
+          </div>
+        </section>
+
+        <section className="tarjeta pila">
+          <Paso numero={3} titulo="Enfermos y observaciones" />
+          <div className="rejilla-campos">
+            <div className="campo">
+              <span><HeartPulse size={16} /> ¿Hubo personas enfermas?</span>
+              <SiNo etiqueta="Hubo personas enfermas" valor={d.hubo_enfermos}
+                alCambiar={(v) => setD((a) => ({ ...a, hubo_enfermos: v, se_oro_enfermos: v ? a.se_oro_enfermos : false }))} />
+            </div>
+            {d.hubo_enfermos && (
+              <div className="campo">
+                <span>¿Se oró por ellas?</span>
+                <SiNo etiqueta="Se oró por los enfermos" valor={d.se_oro_enfermos} alCambiar={(v) => poner("se_oro_enfermos", v)} />
+              </div>
+            )}
+          </div>
+          <Campo etiqueta="Observaciones (opcional)">
+            <textarea name="observaciones" value={d.observaciones} onChange={(e) => poner("observaciones", e.target.value)} />
+          </Campo>
+        </section>
+      </div>
+
+      <aside className="resumen">
+        <p className="resumen-titulo">Resumen del culto</p>
+        <p className="resumen-total">{total} {total === 1 ? "persona" : "personas"}</p>
+        <dl>
+          <div><dt>Hermanos</dt><dd>{entero(d.hermanos)}</dd></div>
+          <div><dt>Amigos</dt><dd>{entero(d.amigos)}</dd></div>
+          <div><dt>Niños</dt><dd>{entero(d.ninos)}</dd></div>
+          <div><dt>Zona</dt><dd>{nombreZona ?? "-"}</dd></div>
+          <div><dt>Ubicación</dt><dd>{marcador ? "Lista" : "Falta"}</dd></div>
+        </dl>
+        {hayErrores && <p className="aviso" role="alert"><AlertCircle size={18} /><span>Revise los campos marcados en rojo.</span></p>}
+        {aviso && <p className="aviso" role="alert"><AlertCircle size={18} /><span>{aviso}</span></p>}
+        <button className="boton grande" disabled={enviando}><Save size={18} /><span>{enviando ? "Guardando..." : "Guardar culto"}</span></button>
+      </aside>
+    </form>
   );
 }

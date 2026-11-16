@@ -16,8 +16,8 @@ describe("filas de actividad", () => {
   it("lista solo las zonas con cultos, con la ofrenda en pesos", () => {
     expect(filasCultosPorZona(r)).toEqual([["Zona 1", 3, 30, 6, "$ 150.000"]]);
   });
-  it("lista solo las zonas con fichas o visitas", () => {
-    expect(filasPersonasPorZona(r)).toEqual([["Zona 3", 2, 0, 0, 0, 4]]);
+  it("lista solo las zonas con hogares, fichas o visitas", () => {
+    expect(filasPersonasPorZona(r)).toEqual([["Zona 3", 2, 0, 0, 0, 0, 4]]);
   });
   it("los totales de cultos incluyen miércoles, viernes y ofrenda", () => {
     const t = Object.fromEntries(filasTotalesCultos(r));

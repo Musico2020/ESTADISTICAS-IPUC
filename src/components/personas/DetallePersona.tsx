@@ -7,28 +7,28 @@ import { usePerfil } from "@/components/ContextoPerfil";
 import MapaPuntosDinamico from "@/components/MapaPuntosDinamico";
 import FormularioPersona from "@/components/personas/FormularioPersona";
 import { useGps } from "@/lib/gps";
-import { ETIQUETA_ESTADO, RUTA_TIPO, type DatosPersona, type EstadoSeguimiento, type TipoPersona } from "@/lib/persona/validar";
+import { ETIQUETA_ESTADO, type DatosPersona, type EstadoSeguimiento } from "@/lib/persona/validar";
 import { puedeCorregir } from "@/lib/roles";
 import { crearClienteNavegador } from "@/lib/supabase/cliente";
 import { useTiempoReal } from "@/lib/tiempoReal";
 import type { Zona } from "@/lib/tipos";
 
-type Persona = Omit<DatosPersona, "edad" | "telefono" | "direccion" | "acudiente" | "familia" | "calamidad" | "peticion" | "notas"> & {
+type Persona = Omit<DatosPersona, "edad" | "telefono" | "direccion" | "familia" | "calamidad" | "peticion" | "notas"> & {
   id: string; creado_por: string; creado_en: string; edad: number | null; telefono: string | null; direccion: string | null;
-  acudiente: string | null; familia: string | null; calamidad: string | null; peticion: string | null; notas: string | null;
+  familia: string | null; calamidad: string | null; peticion: string | null; notas: string | null;
 };
 type Visita = { id: string; fecha: string; notas: string | null; lat: number | null; lon: number | null };
 
 const aDatos = (p: Persona): DatosPersona => ({
-  ...p, edad: p.edad === null ? "" : String(p.edad), telefono: p.telefono ?? "", direccion: p.direccion ?? "", acudiente: p.acudiente ?? "",
+  ...p, edad: p.edad === null ? "" : String(p.edad), telefono: p.telefono ?? "", direccion: p.direccion ?? "",
   familia: p.familia ?? "", calamidad: p.calamidad ?? "", peticion: p.peticion ?? "", notas: p.notas ?? "",
 });
 
-export default function DetallePersona({ tipo }: { tipo: TipoPersona }) {
+export default function DetallePersona() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const perfil = usePerfil();
-  const ruta = RUTA_TIPO[tipo];
+  const ruta = "/amigos";
   const [p, setP] = useState<Persona | null>(null);
   const [visitas, setVisitas] = useState<Visita[]>([]);
   const [zonas, setZonas] = useState<Zona[]>([]);
@@ -41,7 +41,7 @@ export default function DetallePersona({ tipo }: { tipo: TipoPersona }) {
   const cargar = useCallback(async () => {
     const db = crearClienteNavegador();
     const [r, v, z] = await Promise.all([
-      db.from("personas").select("*").eq("id", id).eq("tipo", tipo).maybeSingle(),
+      db.from("personas").select("*").eq("id", id).eq("tipo", "amigo").maybeSingle(),
       db.from("visitas").select("id,fecha,notas,lat,lon").eq("persona_id", id).order("fecha", { ascending: false }),
       db.from("zonas").select("*").order("numero"),
     ]);
@@ -49,7 +49,7 @@ export default function DetallePersona({ tipo }: { tipo: TipoPersona }) {
     setVisitas((v.data ?? []) as Visita[]);
     setZonas((z.data ?? []) as Zona[]);
     setCargado(true);
-  }, [id, tipo]);
+  }, [id]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial
@@ -86,7 +86,7 @@ export default function DetallePersona({ tipo }: { tipo: TipoPersona }) {
     return (
       <div className="pila">
         <h1><Pencil size={26} /><span>Corregir ficha</span></h1>
-        <FormularioPersona tipo={tipo} inicial={aDatos(p)} personaId={p.id} alGuardar={() => { setEditando(false); void cargar(); }} />
+        <FormularioPersona inicial={aDatos(p)} personaId={p.id} alGuardar={() => { setEditando(false); void cargar(); }} />
         <button className="boton secundario" onClick={() => setEditando(false)}>Cancelar</button>
       </div>
     );
@@ -94,17 +94,15 @@ export default function DetallePersona({ tipo }: { tipo: TipoPersona }) {
 
   const filas: [string, string][] = [
     ["Zona", zona?.nombre ?? ""], ["Edad", p.edad === null ? "-" : `${p.edad} años`], ["Teléfono", p.telefono ?? "-"],
-    ...(tipo === "nino_vis" ? [["Acudiente", p.acudiente ?? "-"] as [string, string]] : []),
     ["Familia", p.familia ?? "-"], ["Dirección", p.direccion ?? "-"], ["Calamidad o necesidad", p.calamidad ?? "-"],
     ["Enfermo", p.enfermo ? "Sí" : "No"], ["Petición de oración", p.pide_oracion ? p.peticion ?? "Sí" : "No"],
     ["Se entregó a Cristo", p.entrego_vida ? "Sí" : "No"], ["Seguimiento", ETIQUETA_ESTADO[p.estado_seguimiento as EstadoSeguimiento]],
-    ...(tipo === "nino_vis" ? [["Autorización del acudiente", p.autorizacion_acudiente ? "Sí" : "No"] as [string, string]] : []),
     ["Notas", p.notas ?? "-"], ["Registrado", p.creado_en.slice(0, 10)],
   ];
 
   return (
     <div className="pila">
-      <h1><User size={28} style={{ color: "var(--marca)" }} /><span>{p.nombre}</span></h1>
+      <h1><User size={28} /><span>{p.nombre}</span></h1>
       {marcador && <MapaPuntosDinamico zonas={soloZona} marcador={marcador} />}
       <div className="tarjeta tabla-envoltura">
         <table><tbody>{filas.map(([e, v]) => <tr key={e}><th scope="row">{e}</th><td>{v}</td></tr>)}</tbody></table>

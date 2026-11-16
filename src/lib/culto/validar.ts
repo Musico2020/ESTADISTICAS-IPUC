@@ -7,7 +7,7 @@ export type ErroresCulto = Partial<Record<keyof DatosCulto | "ubicacion", string
 
 export const cultoVacio = (zona_id = ""): DatosCulto => ({
   zona_id, fecha: new Date().toISOString().slice(0, 10), direccion: "", lat: null, lon: null, precision_m: null,
-  hermanos: "", amigos: "", ninos: "", ofrenda: "", hubo_enfermos: false, se_oro_enfermos: false, observaciones: "",
+  hermanos: "0", amigos: "0", ninos: "0", ofrenda: "", hubo_enfermos: false, se_oro_enfermos: false, observaciones: "",
 });
 
 // La ofrenda es en pesos, sin centavos: se aceptan "50000", "50.000" o "$ 50.000".

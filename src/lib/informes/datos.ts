@@ -13,14 +13,19 @@ export type CultoInforme = ConZona & {
   hubo_enfermos: boolean; se_oro_enfermos: boolean; observaciones: string | null;
 };
 export type PersonaInforme = ConZona & {
-  tipo: "nino_vis" | "amigo"; nombre: string; edad: number | null; telefono: string | null; acudiente: string | null; familia: string | null;
+  tipo: "amigo" | "integrante"; nombre: string; edad: number | null; telefono: string | null; parentesco: string | null; familia: string | null;
+  hogares: { familia: string } | null;
   direccion: string | null; calamidad: string | null; enfermo: boolean; pide_oracion: boolean; peticion: string | null;
   entrego_vida: boolean; estado_seguimiento: string; notas: string | null; creado_en: string;
 };
-export type VisitaInforme = ConZona & { fecha: string; notas: string | null; personas: { nombre: string; tipo: string } | null };
+export type VisitaInforme = ConZona & { fecha: string; notas: string | null; personas: { nombre: string; tipo: string } | null; hogares: { familia: string } | null };
+export type HogarInforme = ConZona & {
+  familia: string; direccion: string; telefono: string | null; atendio: string | null; calamidad: string | null; pide_oracion: boolean;
+  peticion: string | null; estado_seguimiento: string; notas: string | null; creado_en: string; personas: { edad: number | null }[];
+};
 export type DatosInforme = {
   estadisticas: Estadisticas; reportes: FilaInforme[]; casos?: CasoInforme[];
-  actividad: ResumenActividad; cultos: CultoInforme[]; personas?: PersonaInforme[]; visitas?: VisitaInforme[];
+  actividad: ResumenActividad; cultos: CultoInforme[]; personas?: PersonaInforme[]; visitas?: VisitaInforme[]; hogares?: HogarInforme[];
   desde: string; hasta: string; zonaNombre: string;
 };
 
@@ -69,21 +74,28 @@ export async function cargarDatosInforme(
   // Nombres, teléfonos y necesidades solo salen si se pide de forma expresa.
   let personas: PersonaInforme[] | undefined;
   let visitas: VisitaInforme[] | undefined;
+  let hogares: HogarInforme[] | undefined;
   if (o.incluirPersonas) {
     personas = await leerTodo<PersonaInforme>((a, b) => {
-      let c = db.from("personas").select("tipo,nombre,edad,telefono,acudiente,familia,direccion,calamidad,enfermo,pide_oracion,peticion,entrego_vida,estado_seguimiento,notas,creado_en,zonas(nombre)")
+      let c = db.from("personas").select("tipo,nombre,edad,telefono,parentesco,familia,direccion,calamidad,enfermo,pide_oracion,peticion,entrego_vida,estado_seguimiento,notas,creado_en,zonas(nombre),hogares(familia)")
         .gte("creado_en", o.desde).lte("creado_en", `${o.hasta}T23:59:59`);
       if (o.zona) c = c.eq("zona_id", o.zona);
       return c.order("creado_en").order("id").range(a, b);
     });
     visitas = await leerTodo<VisitaInforme>((a, b) => {
-      let c = db.from("visitas").select("fecha,notas,zonas(nombre),personas(nombre,tipo)").gte("fecha", o.desde).lte("fecha", o.hasta);
+      let c = db.from("visitas").select("fecha,notas,zonas(nombre),personas(nombre,tipo),hogares(familia)").gte("fecha", o.desde).lte("fecha", o.hasta);
       if (o.zona) c = c.eq("zona_id", o.zona);
       return c.order("fecha").order("id").range(a, b);
     });
+    hogares = await leerTodo<HogarInforme>((a, b) => {
+      let c = db.from("hogares").select("familia,direccion,telefono,atendio,calamidad,pide_oracion,peticion,estado_seguimiento,notas,creado_en,zonas(nombre),personas(edad)")
+        .gte("creado_en", o.desde).lte("creado_en", `${o.hasta}T23:59:59`);
+      if (o.zona) c = c.eq("zona_id", o.zona);
+      return c.order("creado_en").order("id").range(a, b);
+    });
   }
   return {
-    estadisticas: data as Estadisticas, reportes, casos, actividad: act.data as ResumenActividad, cultos, personas, visitas,
+    estadisticas: data as Estadisticas, reportes, casos, actividad: act.data as ResumenActividad, cultos, personas, visitas, hogares,
     desde: o.desde, hasta: o.hasta, zonaNombre: o.zonaNombre,
   };
 }

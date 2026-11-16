@@ -5,7 +5,7 @@ export const CAPAS_INICIALES: Capas = { manzanas: true, cultos: true, vis: true,
 export type Situacion = "" | "enfermo" | "pide_oracion" | "entrego_vida";
 export type PeriodoMapa = "mes" | "anio" | "todo" | "rango";
 
-export const COLOR_CAPA = { cultos: "#22c55e", vis: "#2563eb", amigos: "#9333ea" } as const;
+export const COLOR_CAPA = { cultos: "#059669", vis: "#ea580c", amigos: "#db2777" } as const;
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -30,7 +30,7 @@ export const enZonas = <T extends ConZona>(filas: T[], zonas: Zona[]) => {
   return filas.filter((f) => ids.has(f.zona_id));
 };
 
-type Persona = ConZona & { tipo: "nino_vis" | "amigo"; enfermo: boolean; pide_oracion: boolean; entrego_vida: boolean };
+type Persona = ConZona & { enfermo: boolean; pide_oracion: boolean; entrego_vida: boolean };
 type Culto = ConZona & { hubo_enfermos: boolean };
 
 export function filtrarPorSituacion<P extends Persona, C extends Culto>(personas: P[], cultos: C[], s: Situacion) {

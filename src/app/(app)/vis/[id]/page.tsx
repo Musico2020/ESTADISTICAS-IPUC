@@ -1,5 +1,5 @@
-import DetallePersona from "@/components/personas/DetallePersona";
+import DetalleHogar from "@/components/hogares/DetalleHogar";
 
-export default function FichaVis() {
-  return <DetallePersona tipo="nino_vis" />;
+export default function HogarVis() {
+  return <DetalleHogar />;
 }

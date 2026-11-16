@@ -24,9 +24,12 @@ export default function MapaInteractivo({ zonas, sectores, manzanas, estados, cu
     if (mapa.current || !contenedor.current) return;
     // Vista inicial en el Barrio Dangond: Leaflet no dibuja puntos antes de tener una vista.
     mapa.current = L.map(contenedor.current).setView([10.4625, -73.2585], 15);
+    // Si el contenedor cambia de tamaño después de crear el mapa (letra, menú, paneles), Leaflet debe recalcular o deja cuadros grises.
+    const tamano = new ResizeObserver(() => mapa.current?.invalidateSize({ animate: false }));
+    tamano.observe(contenedor.current);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(mapa.current);
     capa.current = L.layerGroup().addTo(mapa.current);
-    return () => { mapa.current?.remove(); mapa.current = null; encuadre.current = ""; };
+    return () => { tamano.disconnect(); mapa.current?.remove(); mapa.current = null; encuadre.current = ""; };
   }, []);
 
   useEffect(() => {

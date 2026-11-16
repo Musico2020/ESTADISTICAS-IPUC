@@ -17,9 +17,17 @@ const MapaInteractivo = dynamic(() => import("@/components/MapaInteractivo"), {
 });
 
 type Culto = { id: string; zona_id: string; fecha: string; dia_semana: number; direccion: string; lat: number; lon: number; hermanos: number; amigos: number; ninos: number; hubo_enfermos: boolean };
-type Persona = { id: string; tipo: "nino_vis" | "amigo"; zona_id: string; nombre: string; edad: number | null; lat: number; lon: number; enfermo: boolean; pide_oracion: boolean; entrego_vida: boolean };
+type Persona = { id: string; tipo: "amigo"; zona_id: string; nombre: string; edad: number | null; lat: number; lon: number; enfermo: boolean; pide_oracion: boolean; entrego_vida: boolean };
+type Miembro = { edad: number | null; enfermo: boolean; pide_oracion: boolean; entrego_vida: boolean };
+type HogarFila = { id: string; zona_id: string; familia: string; direccion: string; lat: number; lon: number; pide_oracion: boolean; personas: Miembro[] };
+// Un hogar cuenta como enfermo, con oración o con entrega si alguno de sus integrantes lo está.
+type Hogar = Omit<HogarFila, "personas"> & { integrantes: number; enfermo: boolean; entrego_vida: boolean };
+const aHogar = ({ personas, ...h }: HogarFila): Hogar => ({
+  ...h, integrantes: personas.length, enfermo: personas.some((p) => p.enfermo),
+  pide_oracion: h.pide_oracion || personas.some((p) => p.pide_oracion), entrego_vida: personas.some((p) => p.entrego_vida),
+});
 
-const AVISO_TABLA: Record<string, string> = { cultos: "Nuevo culto", personas: "Nueva ficha", reportes: "Nueva jornada de evangelismo" };
+const AVISO_TABLA: Record<string, string> = { cultos: "Nuevo culto", personas: "Nueva ficha", hogares: "Nuevo hogar visitado", reportes: "Nueva jornada de evangelismo" };
 
 export default function PaginaMapa() {
   const [zonas, setZonas] = useState<Zona[]>([]);
@@ -28,6 +36,7 @@ export default function PaginaMapa() {
   const [estados, setEstados] = useState<EstadoManzana[]>([]);
   const [cultos, setCultos] = useState<Culto[]>([]);
   const [personas, setPersonas] = useState<Persona[]>([]);
+  const [hogares, setHogares] = useState<Hogar[]>([]);
   const [capas, setCapas] = useState<Capas>(CAPAS_INICIALES);
   const [sector, setSector] = useState("");
   const [zona, setZona] = useState("");
@@ -54,14 +63,17 @@ export default function PaginaMapa() {
   const cargar = useCallback(async () => {
     const db = crearClienteNavegador();
     // RLS deja a cada persona ver solo los registros de su alcance.
-    const [e, c, p] = await Promise.all([
+    const [e, c, p, h] = await Promise.all([
       db.rpc("estado_manzanas", { p_desde: rango.desde, p_hasta: rango.hasta }),
       db.from("cultos").select("id,zona_id,fecha,dia_semana,direccion,lat,lon,hermanos,amigos,ninos,hubo_enfermos").gte("fecha", rango.desde).lte("fecha", rango.hasta),
-      db.from("personas").select("id,tipo,zona_id,nombre,edad,lat,lon,enfermo,pide_oracion,entrego_vida").not("lat", "is", null)
+      db.from("personas").select("id,tipo,zona_id,nombre,edad,lat,lon,enfermo,pide_oracion,entrego_vida").eq("tipo", "amigo").not("lat", "is", null)
+        .gte("creado_en", rango.desde).lte("creado_en", `${rango.hasta}T23:59:59`),
+      db.from("hogares").select("id,zona_id,familia,direccion,lat,lon,pide_oracion,personas(edad,enfermo,pide_oracion,entrego_vida)").not("lat", "is", null)
         .gte("creado_en", rango.desde).lte("creado_en", `${rango.hasta}T23:59:59`),
     ]);
-    setError(!!(e.error || c.error || p.error));
+    setError(!!(e.error || c.error || p.error || h.error));
     setEstados((e.data ?? []) as EstadoManzana[]); setCultos((c.data ?? []) as Culto[]); setPersonas((p.data ?? []) as Persona[]);
+    setHogares(((h.data ?? []) as HogarFila[]).map(aHogar));
   }, [rango]);
 
   useEffect(() => {
@@ -81,10 +93,12 @@ export default function PaginaMapa() {
   const v1 = useTiempoReal("cultos", alCambiar);
   const v2 = useTiempoReal("personas", alCambiar);
   const v3 = useTiempoReal("reportes", alCambiar);
-  const enVivo = v1 && v2 && v3;
+  const v4 = useTiempoReal("hogares", alCambiar);
+  const enVivo = v1 && v2 && v3 && v4;
 
   const visibles = useMemo(() => zonasFiltradas(zonas, sector, zona), [zonas, sector, zona]);
   const filtrado = useMemo(() => filtrarPorSituacion(enZonas(personas, visibles), enZonas(cultos, visibles), situacion), [personas, cultos, visibles, situacion]);
+  const hogaresVisibles = useMemo(() => enZonas(hogares, visibles).filter((h) => !situacion || h[situacion]), [hogares, visibles, situacion]);
   const manzanasVisibles = useMemo(() => enZonas(manzanas, visibles), [manzanas, visibles]);
   const avance = calcularAvance(manzanasVisibles, estados);
 
@@ -92,13 +106,16 @@ export default function PaginaMapa() {
     id: c.id, lat: c.lat, lon: c.lon,
     ventana: `<b>Culto · ${escaparHtml(c.direccion)}</b><br>${DIAS[c.dia_semana]} ${c.fecha} · ${escaparHtml(nombreZona(c.zona_id))}<br>Hermanos ${c.hermanos} · Amigos ${c.amigos} · Niños ${c.ninos}${c.hubo_enfermos ? "<br>Hubo enfermos" : ""}<br><a href="/cultos/${c.id}">Ver detalle</a>`,
   })), [filtrado.cultos, nombreZona]);
-  const puntosPersona = useCallback((tipo: Persona["tipo"]) => filtrado.personas.filter((p) => p.tipo === tipo).map((p) => ({
+  const situaciones = (p: { enfermo: boolean; pide_oracion: boolean; entrego_vida: boolean }) =>
+    [p.enfermo && "Enfermo", p.pide_oracion && "Pide oración", p.entrego_vida && "Se entregó a Cristo"].filter(Boolean).join(" · ") || "Sin novedades";
+  const puntosVis: PuntoMapa[] = useMemo(() => hogaresVisibles.map((h) => ({
+    id: h.id, lat: h.lat, lon: h.lon,
+    ventana: `<b>VIS · ${escaparHtml(h.familia)}</b> · ${h.integrantes} integrantes<br>${escaparHtml(h.direccion)}<br>${escaparHtml(nombreZona(h.zona_id))}<br>${situaciones(h)}<br><a href="/vis/${h.id}">Ver hogar</a>`,
+  })), [hogaresVisibles, nombreZona]);
+  const puntosAmigos: PuntoMapa[] = useMemo(() => filtrado.personas.map((p) => ({
     id: p.id, lat: p.lat, lon: p.lon,
-    ventana: `<b>${tipo === "nino_vis" ? "VIS" : "Amigo"} · ${escaparHtml(p.nombre)}</b>${p.edad !== null ? ` · ${p.edad} años` : ""}<br>${escaparHtml(nombreZona(p.zona_id))}<br>`
-      + `${[p.enfermo && "Enfermo", p.pide_oracion && "Pide oración", p.entrego_vida && "Se entregó a Cristo"].filter(Boolean).join(" · ") || "Sin novedades"}<br><a href="${tipo === "nino_vis" ? "/vis" : "/amigos"}/${p.id}">Ver ficha</a>`,
+    ventana: `<b>Amigo · ${escaparHtml(p.nombre)}</b>${p.edad !== null ? ` · ${p.edad} años` : ""}<br>${escaparHtml(nombreZona(p.zona_id))}<br>${situaciones(p)}<br><a href="/amigos/${p.id}">Ver ficha</a>`,
   })), [filtrado.personas, nombreZona]);
-  const puntosVis = useMemo(() => puntosPersona("nino_vis"), [puntosPersona]);
-  const puntosAmigos = useMemo(() => puntosPersona("amigo"), [puntosPersona]);
   const ventanaManzana = useCallback((m: Manzana, e: EstadoManzana | undefined) =>
     `<b>Manzana ${escaparHtml(m.codigo)}</b><br>${escaparHtml(nombreZona(m.zona_id))}<br>${e ? `Última jornada: ${e.ultima_fecha}<br>Jornadas: ${e.jornadas}` : "Sin predicar en este período"}`, [nombreZona]);
 
@@ -114,7 +131,7 @@ export default function PaginaMapa() {
   return (
     <div className="pila">
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-        <h1><MapPin size={28} style={{ color: "var(--marca)" }} /><span>Mapa interactivo</span></h1>
+        <h1><MapPin size={28} /><span>Mapa interactivo</span></h1>
         <span className={`badge ${enVivo ? "badge-exito" : "badge-tenue"}`} title="Lo nuevo aparece sin recargar"><Radio size={13} /> {enVivo ? "En vivo" : "Conectando..."}</span>
       </div>
       {error && <p className="aviso" role="alert"><AlertCircle size={18} /><span>No se pudo cargar parte del mapa. Revise la conexión.</span></p>}
@@ -129,7 +146,7 @@ export default function PaginaMapa() {
               <h3 className="mapa-titulo">Capas</h3>
               {capa("manzanas", "Manzanas", COLOR_SIN_PREDICAR, manzanasVisibles.filter((m) => m.activa).length)}
               {capa("cultos", "Casas con culto", COLOR_CAPA.cultos, filtrado.cultos.length)}
-              {capa("vis", "VIS (niños)", COLOR_CAPA.vis, puntosVis.length)}
+              {capa("vis", "Hogares VIS", COLOR_CAPA.vis, puntosVis.length)}
               {capa("amigos", "Amigos", COLOR_CAPA.amigos, puntosAmigos.length)}
               {capa("bordes", "Bordes de sectores y zonas", null)}
             </div>
@@ -167,8 +184,8 @@ export default function PaginaMapa() {
               <div className="mapa-kpis">
                 <div><b>{avance.porcentaje}%</b><span>Avance manzanas</span></div>
                 <div><b>{filtrado.cultos.length}</b><span>Cultos</span></div>
-                <div><b>{filtrado.personas.length}</b><span>Personas</span></div>
-                <div><b>{filtrado.personas.filter((p) => p.pide_oracion).length}</b><span>Piden oración</span></div>
+                <div><b>{hogaresVisibles.length}</b><span>Hogares VIS</span></div>
+                <div><b>{filtrado.personas.length}</b><span>Amigos</span></div>
               </div>
             </div>
           </div>
@@ -184,12 +201,12 @@ export default function PaginaMapa() {
         <span><i style={{ background: COLOR_ALCANZADA }} />Manzana alcanzada</span>
         <span><i style={{ background: COLOR_SIN_PREDICAR }} />Sin predicar</span>
         <span><i style={{ background: COLOR_CAPA.cultos, borderRadius: "50%" }} />Culto</span>
-        <span><i style={{ background: COLOR_CAPA.vis, borderRadius: "50%" }} />VIS</span>
+        <span><i style={{ background: COLOR_CAPA.vis, borderRadius: "50%" }} />Hogar VIS</span>
         <span><i style={{ background: COLOR_CAPA.amigos, borderRadius: "50%" }} />Amigo</span>
       </div>
 
-      <section className="tarjeta tabla-envoltura">
-        <h2>Avance de manzanas por zona</h2>
+      <h2>Avance de manzanas por zona</h2>
+      <section className="tabla-envoltura">
         <table>
           <thead><tr><th>Sector</th><th>Zona</th><th className="numero">Alcanzadas</th><th className="numero">Avance</th></tr></thead>
           <tbody>

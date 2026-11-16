@@ -14,7 +14,7 @@ function hoja(libro: ExcelJS.Workbook, nombre: string, encabezados: string[], fi
   h.views = [{ state: "frozen", ySplit: 1 }];
 }
 
-export async function generarExcel({ estadisticas: e, reportes, casos, actividad, cultos, personas, visitas, desde, hasta }: DatosInforme) {
+export async function generarExcel({ estadisticas: e, reportes, casos, actividad, cultos, personas, visitas, hogares, desde, hasta }: DatosInforme) {
   const libro = new ExcelJS.Workbook();
   const t = e.totales;
   hoja(libro, "Resumen", ["Indicador", "Valor"], [
@@ -42,18 +42,26 @@ export async function generarExcel({ estadisticas: e, reportes, casos, actividad
   const si = (v: boolean) => (v ? "Sí" : "No");
   hoja(libro, "Cultos", ["Fecha", "Día", "Zona", "Dirección", "Hermanos", "Amigos", "Niños", "Ofrenda", "Hubo enfermos", "Se oró", "Observaciones"],
     cultos.map((c) => [c.fecha, DIAS[c.dia_semana], c.zonas?.nombre ?? "", c.direccion, c.hermanos, c.amigos, c.ninos, c.ofrenda, si(c.hubo_enfermos), si(c.se_oro_enfermos), c.observaciones]));
-  hoja(libro, "Actividad por zona", ["Zona", "Cultos", "Hermanos", "Amigos en cultos", "Ofrenda", "VIS", "Fichas de amigos", "Se entregaron", "Piden oración", "Visitas"],
-    actividad.por_zona.map((z) => [z.nombre, z.cultos, z.hermanos, z.amigos, z.ofrenda, z.vis, z.fichas_amigos, z.entregaron, z.oracion, z.visitas]));
+  hoja(libro, "Actividad por zona", ["Zona", "Cultos", "Hermanos", "Amigos en cultos", "Ofrenda", "Hogares VIS", "Personas en hogares", "Fichas de amigos", "Se entregaron", "Piden oración", "Visitas"],
+    actividad.por_zona.map((z) => [z.nombre, z.cultos, z.hermanos, z.amigos, z.ofrenda, z.vis, z.integrantes ?? 0, z.fichas_amigos, z.entregaron, z.oracion, z.visitas]));
+  if (hogares) {
+    hoja(libro, "Hogares VIS", ["Registrado", "Zona", "Familia", "Dirección", "Teléfono", "Recibió la visita", "Integrantes", "Menores", "Calamidad o necesidad", "Pide oración", "Petición", "Seguimiento", "Notas"],
+      hogares.map((h) => [h.creado_en.slice(0, 10), h.zonas?.nombre ?? "", h.familia, h.direccion, h.telefono, h.atendio, h.personas.length,
+        h.personas.filter((p) => p.edad !== null && p.edad < 18).length, h.calamidad, si(h.pide_oracion), h.peticion,
+        ETIQUETA_ESTADO[h.estado_seguimiento as EstadoSeguimiento] ?? h.estado_seguimiento, h.notas]));
+  }
   if (personas) {
-    const fila = (p: (typeof personas)[number]) => [p.creado_en.slice(0, 10), p.zonas?.nombre ?? "", p.nombre, p.edad, p.telefono, p.acudiente, p.familia, p.direccion,
-      p.calamidad, si(p.enfermo), si(p.pide_oracion), p.peticion, si(p.entrego_vida), ETIQUETA_ESTADO[p.estado_seguimiento as EstadoSeguimiento] ?? p.estado_seguimiento, p.notas];
-    const enc = ["Registrado", "Zona", "Nombre", "Edad", "Teléfono", "Acudiente", "Familia", "Dirección", "Calamidad o necesidad", "Enfermo", "Pide oración", "Petición", "Se entregó a Cristo", "Seguimiento", "Notas"];
-    hoja(libro, "VIS", enc, personas.filter((p) => p.tipo === "nino_vis").map(fila));
-    hoja(libro, "Amigos", enc, personas.filter((p) => p.tipo === "amigo").map(fila));
+    const seguimiento = (p: (typeof personas)[number]) => ETIQUETA_ESTADO[p.estado_seguimiento as EstadoSeguimiento] ?? p.estado_seguimiento;
+    hoja(libro, "Integrantes VIS", ["Registrado", "Zona", "Familia", "Nombre", "Parentesco", "Edad", "Teléfono", "Enfermo", "Pide oración", "Petición", "Se entregó a Cristo", "Seguimiento"],
+      personas.filter((p) => p.tipo === "integrante").map((p) => [p.creado_en.slice(0, 10), p.zonas?.nombre ?? "", p.hogares?.familia ?? "", p.nombre, p.parentesco, p.edad, p.telefono,
+        si(p.enfermo), si(p.pide_oracion), p.peticion, si(p.entrego_vida), seguimiento(p)]));
+    hoja(libro, "Amigos", ["Registrado", "Zona", "Nombre", "Edad", "Teléfono", "Familia", "Dirección", "Necesidad", "Enfermo", "Pide oración", "Petición", "Se entregó a Cristo", "Seguimiento", "Notas"],
+      personas.filter((p) => p.tipo === "amigo").map((p) => [p.creado_en.slice(0, 10), p.zonas?.nombre ?? "", p.nombre, p.edad, p.telefono, p.familia, p.direccion,
+        p.calamidad, si(p.enfermo), si(p.pide_oracion), p.peticion, si(p.entrego_vida), seguimiento(p), p.notas]));
   }
   if (visitas) {
-    hoja(libro, "Visitas", ["Fecha", "Zona", "Persona", "Tipo", "Notas"],
-      visitas.map((v) => [v.fecha, v.zonas?.nombre ?? "", v.personas?.nombre ?? "", v.personas?.tipo === "nino_vis" ? "VIS" : "Amigo", v.notas]));
+    hoja(libro, "Visitas", ["Fecha", "Zona", "Visitado", "Tipo", "Notas"],
+      visitas.map((v) => [v.fecha, v.zonas?.nombre ?? "", v.hogares?.familia ?? v.personas?.nombre ?? "", v.hogares ? "Hogar VIS" : "Amigo", v.notas]));
   }
   const b = await libro.xlsx.writeBuffer();
   const url = URL.createObjectURL(new Blob([b], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));

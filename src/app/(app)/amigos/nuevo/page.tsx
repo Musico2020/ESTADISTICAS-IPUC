@@ -14,9 +14,9 @@ function Contenido() {
   const culto = useSearchParams().get("culto");
   return (
     <div className="pila">
-      <h1><HeartHandshake size={28} style={{ color: "var(--marca)" }} /><span>Registrar amigo</span></h1>
+      <h1><HeartHandshake size={28} /><span>Registrar amigo</span></h1>
       {culto && <p className="tenue">Quedará vinculado al culto donde asistió.</p>}
-      <FormularioPersona tipo="amigo" cultoId={culto} alGuardar={(id) => router.push(`/amigos/${id}`)} />
+      <FormularioPersona cultoId={culto} alGuardar={(id) => router.push(`/amigos/${id}`)} />
     </div>
   );
 }

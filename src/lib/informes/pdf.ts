@@ -58,10 +58,10 @@ export async function generarPdf({ estadisticas: e, desde, hasta, zonaNombre, ca
   }
   tabla("Cultos en casas", ["Indicador", "Valor"], filasTotalesCultos(a));
   tabla("Cultos por zona", ENCABEZADOS_CULTOS_ZONA, filasCultosPorZona(a));
-  tabla("VIS y amigos", ["Indicador", "Valor"], filasTotalesPersonas(a));
-  tabla("VIS y amigos por zona", ENCABEZADOS_PERSONAS_ZONA, filasPersonasPorZona(a));
+  tabla("VIS (hogares) y amigos", ["Indicador", "Valor"], filasTotalesPersonas(a));
+  tabla("VIS (hogares) y amigos por zona", ENCABEZADOS_PERSONAS_ZONA, filasPersonasPorZona(a));
   if (personas) {
-    const tipo = (p: { tipo: string }) => (p.tipo === "nino_vis" ? "VIS" : "Amigo");
+    const tipo = (p: (typeof personas)[number]) => (p.tipo === "integrante" ? `VIS · ${p.hogares?.familia ?? ""}` : "Amigo");
     tabla("Peticiones de oración", ["Nombre", "Tipo", "Zona", "Petición"], personas.filter((p) => p.pide_oracion).map((p) => [p.nombre, tipo(p), p.zonas?.nombre ?? "", p.peticion ?? ""]));
     tabla("Se entregaron a Cristo", ["Nombre", "Tipo", "Zona", "Registrado"], personas.filter((p) => p.entrego_vida).map((p) => [p.nombre, tipo(p), p.zonas?.nombre ?? "", p.creado_en.slice(0, 10)]));
     tabla("Enfermos", ["Nombre", "Tipo", "Zona", "Necesidad"], personas.filter((p) => p.enfermo).map((p) => [p.nombre, tipo(p), p.zonas?.nombre ?? "", p.calamidad ?? ""]));

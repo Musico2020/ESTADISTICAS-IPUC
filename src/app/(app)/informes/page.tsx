@@ -147,7 +147,7 @@ export default function PaginaInformes() {
           <div>
             <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
               <ShieldAlert size={16} style={{ color: "var(--aviso)" }} />
-              Incluir listados con nombres de VIS, amigos y visitas
+              Incluir listados con nombres de hogares VIS, sus integrantes, amigos y visitas
             </span>
             <span className="tenue" style={{ fontSize: "0.82rem" }}>
               Precaución: datos personales de niños y amigos (teléfonos, familia, peticiones de oración).
